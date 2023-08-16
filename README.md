@@ -181,17 +181,18 @@ A number of other libraries contain scripts for calling the eval harness through
 
 If you have a CUDA-compatible Mac GPU, you can run the eval harness using the MPS back-end by replaicng `--device cuda:0` with `--device mps:0`. PyTorch does not currently support automatic mixed precision (AMP) for MPS, so we forcibly cast all weights to fp32 regardless of how they're stored. This is slower and has a larger memory footprint than we can achieve on Linux systems, but as PyTorch continues to improve its MPS support we hope to continue to improve it.
 
-💡 **Tip**: You can inspect what the LM inputs look like by running the following command:
+💡 **Tip**: You can inspect what the LM inputs and outputs look like by using the `--log_samples` flag, optionally with `--limit`:
 
 ```bash
-python write_out.py \
-    --tasks all_tasks \
+python main.py \
+    --model hf \
+    --tasks hellaswag,arc_easy \
     --num_fewshot 5 \
-    --num_examples 10 \
+    --limit 10 \
+    --log_samples
     --output_base_path /path/to/output/folder
 ```
-
-This will write out one text file for each task.
+This will save the context and outputs to the specified folder.
 
 To verify the data integrity of the tasks you're performing in addition to running the tasks themselves, you can use the `--check_integrity` flag:
 
