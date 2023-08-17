@@ -38,7 +38,8 @@ def register_configurable_task(config):
     return 0
 
 
-def check_prompt_config(config):
+def check_prompt_config(config) -> List[dict]:
+    """Load all prompts from promptsource if use_prompt is specified"""
     all_configs = []
     if "use_prompt" in config:
         prompt_list = prompts.load_prompt_list(
@@ -76,9 +77,9 @@ def get_task_name_from_config(task_config):
         return "{dataset_path}".format(**task_config)
 
 
-def include_task_folder(task_dir):
+def include_task_folder(task_dir) -> None:
     """
-    Calling this function
+    Recursively register all tasks in a folder
     """
     for root, subdirs, file_list in os.walk(task_dir):
         if (subdirs == [] or subdirs == ["__pycache__"]) and (len(file_list) > 0):
@@ -104,7 +105,8 @@ task_dir = os.path.dirname(os.path.abspath(__file__)) + "/"
 include_task_folder(task_dir)
 
 
-def get_task(task_name, config):
+def get_task(task_name: str, config: dict = None) -> Task:
+    """Get a task by name."""
     try:
         return TASK_REGISTRY[task_name](config=config)
     except KeyError:
@@ -128,7 +130,7 @@ def get_task_name_from_object(task_object):
 
 
 # TODO: pass num_fewshot and other cmdline overrides in a better way
-def get_task_dict(task_name_list: List[Union[str, dict, Task]], **kwargs):
+def get_task_dict(task_name_list: List[Union[str, dict, Task]], **kwargs) -> dict:
 
     config = {**kwargs}
 
