@@ -3,26 +3,13 @@
 
 
 def doc_to_text_aquarat(doc: dict) -> str:
-    _fewshot = (
-        "Here are the answers for the problems in the exam.\nProblem 1.    A cycled from P to Q at 10 kmph "
-        "and returned at the rate of 9 kmph. B cycled both ways at 12 kmph. In the whole journey B took 10 "
-        "minutes less than A. Find the distance between P and Q.\nChoose from the following options:    ("
-        "A)1.75km (B)2.75km (C)3.75km (D)4.75km (E)5.75km\nThe answer is therefore C\nProblem 2.    In "
-        "a poll of 45,000 dentists, only 30 percent responded; of these, 20 percent claimed to prefer "
-        "Toothpaste A. How many of the dentists who responded did not claim a preference for Toothpaste "
-        "A?\nChoose from the following options:    (A)2,200 (B)2,640 (C)6,160 (D)8,800 (E)10,800\nThe answer "
-        "is therefore E\nProblem 3.    In a shipment of 120 machine parts, 5 percent were defective. "
-        "In a shipment of 80 machine parts, 10 percent were defective. For the two shipments combined, "
-        "what percent of the machine parts were defective?\nChoose from the following options:    (A)6.5% ("
-        "B)7.0% (C)7.5% (D)8.0% (E)8.5%\nThe answer is therefore C\nProblem 4.    In recent Malta "
-        "elections, in a particular constituency, 100,000 votes were cast and each vote was cast for\neither "
-        "Candidate A or Candidate B. If candidate A has won by 500 votes, what percent of the 100,"
-        "000 votes\nwere cast for Candidate A?\nChoose from the following options:    (A)50.05% (B)50.25% ("
-        "C)50.5% (D)51% (E)52.5%\nThe answer is therefore B\nProblem 5.    In 4 years, Raj's father "
-        "will be double Raj's age then. Two years ago, while his mother was twice his age that time. If Raj "
-        "is going to be 32 years old 8 years from now, then what is the sum of his parents age now?\nChoose "
-        "from the following options:    (A)97 (B)98 (C)99 (D)100 (E)101\nThe answer is therefore B\n"
-    )
+    _fewshot = [
+        "Problem 1.    A cycled from P to Q at 10 kmph and returned at the rate of 9 kmph. B cycled both ways at 12 kmph. In the whole journey B took 10 minutes less than A. Find the distance between P and Q.\nChoose from the following options:    (A)1.75km (B)2.75km (C)3.75km (D)4.75km (E)5.75km\nThe answer is therefore C\n",
+        "Problem 2.    In a poll of 45,000 dentists, only 30 percent responded; of these, 20 percent claimed to prefer Toothpaste A. How many of the dentists who responded did not claim a preference for Toothpaste A?\nChoose from the following options:    (A)2,200 (B)2,640 (C)6,160 (D)8,800 (E)10,800\nThe answer is therefore E\n",
+        "Problem 3.    In a shipment of 120 machine parts, 5 percent were defective. In a shipment of 80 machine parts, 10 percent were defective. For the two shipments combined, what percent of the machine parts were defective?\nChoose from the following options:    (A)6.5% (B)7.0% (C)7.5% (D)8.0% (E)8.5%\nThe answer is therefore C\n",
+        "Problem 4.    In recent Malta elections, in a particular constituency, 100,000 votes were cast and each vote was cast for\neither Candidate A or Candidate B. If candidate A has won by 500 votes, what percent of the 100,000 votes\nwere cast for Candidate A?\nChoose from the following options:    (A)50.05% (B)50.25% (C)50.5% (D)51% (E)52.5%\nThe answer is therefore B\n",
+        "Problem 5.    In 4 years, Raj's father will be double Raj's age then. Two years ago, while his mother was twice his age that time. If Raj is going to be 32 years old 8 years from now, then what is the sum of his parents age now?\nChoose from the following options:    (A)97 (B)98 (C)99 (D)100 (E)101\nThe answer is therefore B\n",
+    ]
     passage = doc.get("passage", "")
     question_input = (
         "Problem {}.   ".format(6)
@@ -104,3 +91,42 @@ def doc_to_text_zeroshot(doc: dict) -> str:
         + "\n"
         + "A: Among A through {}, the answer is".format(option_string[count - 1])
     )
+
+
+# MATH DATASET
+def doc_to_text_math_zeroshot(doc: dict) -> str:
+    """
+    <passage>Q: <question>\n
+    A: The answer is
+    """
+    return doc["passage"] + "Q: " + doc["question"] + "\n" "A: The answer is"
+
+
+# taken from https://github.com/microsoft/AGIEval/blob/main/src/post_process.py
+def extract_last_line(string):
+    lines = string.split("\n")
+    for item in lines[::-1]:
+        if item.strip() != "":
+            string = item
+            break
+    return string
+
+
+def remove_few_shot_prefix(string: str):
+    prefix_list = ["The answer is therefore", "答案是"]
+    for prefix in prefix_list:
+        if string.startswith(prefix):
+            string = string[len(prefix) :].strip()
+        elif prefix in string:
+            index = string.rfind(prefix)
+            if index >= 0:
+                string = string[index + len(prefix) :].strip()
+    return string
+
+
+# def parse_math_answer(raw_string):
+#     if setting_name == "few-shot-CoT":
+#         raw_string = extract_last_line(raw_string)
+#     if setting_name == "few-shot-CoT" or setting_name == "few-shot":
+#         raw_string = remove_few_shot_prefix(raw_string)
+#         return raw_string
