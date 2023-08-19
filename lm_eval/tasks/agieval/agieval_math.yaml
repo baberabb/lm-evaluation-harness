@@ -1,0 +1,13 @@
+include: agieval_aquarat.yaml
+task: agieval_math
+dataset_name: math_agieval
+dataset_path: baber/agieval
+output_type: greedy_until
+
+doc_to_text: !function utils_agimath.doc_to_text_math_fewshot
+doc_to_target: "{{answer}}"
+doc_to_choice: null
+process_results: !function utils_agimath.process_results_math
+generation_kwargs:
+  until:
+    - "\n\n"

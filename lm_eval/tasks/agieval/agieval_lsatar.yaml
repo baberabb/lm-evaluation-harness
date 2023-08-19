@@ -1,5 +1,5 @@
 include: agieval_aquarat.yaml
-task: agieval_lsat_ar
+task: agieval_lsatar
 dataset_name: lsat_ar
 dataset_path: baber/agieval
 

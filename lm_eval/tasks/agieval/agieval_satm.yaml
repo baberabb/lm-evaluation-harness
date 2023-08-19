@@ -1,0 +1,6 @@
+include: agieval_aquarat.yaml
+task: agieval_satm
+dataset_name: sat_math
+dataset_path: baber/agieval
+
+doc_to_text: !function utils_agieval.doc_to_text_sat_math
