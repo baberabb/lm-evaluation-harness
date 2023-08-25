@@ -38,11 +38,6 @@ def remove_few_shot_prefix(string: str):
         index = string.rfind(prefix)
         if index >= 0:
             string = string[index + len(prefix) :].strip()
-    else:
-        try:
-            string = string.split()[0].strip()
-        except:  # noqa: E722
-            string = string
     return string
 
 
