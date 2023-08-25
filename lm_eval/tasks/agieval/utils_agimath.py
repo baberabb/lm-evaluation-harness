@@ -21,7 +21,7 @@ def doc_to_text_math_fewshot(doc: dict) -> str:
         "Problem 3.   Terrell usually lifts two 20-pound weights 12 times. If he uses two 15-pound weights instead, how many times must Terrell lift them in order to lift the same total weight?\nThe answer is therefore 16\n",
         "Problem 4.   If the system of equations  \\begin{align*}\n3x+y&=a,\\\\\n2x+5y&=2a,\n\\end{align*} has a solution $(x,y)$ when $x=2$, compute $a$.\nThe answer is therefore \\frac{26}{3}\n",
     ]
-    _fewshot = "\n".join(_fewshot)
+    _fewshot = "".join(_fewshot)
     question_input = "Problem {}.   ".format(5) + doc["question"]
     return _fewshot + question_input
 
