@@ -34,7 +34,7 @@ def doc_to_text_aquarat(doc: dict) -> str:
         + doc["question"]
         + "\n"
         + "Choose from the following options:    "
-        + " ".join(doc["options"])
+        + r"\n".join(doc["options"])
     )
     return _fewshot + question_input
 
@@ -55,7 +55,7 @@ def doc_to_text_logiqa(doc: dict) -> str:
         + doc["question"]
         + "\n"
         + "Choose from the following options:    "
-        + " ".join(doc["options"])
+        + r"\n".join(doc["options"])
     )
     return _fewshot + question_input
 
@@ -76,7 +76,7 @@ def doc_to_text_lsat_ar(doc: dict) -> str:
         + doc["question"]
         + "\n"
         + "Choose from the following options:    "
-        + " ".join(doc["options"])
+        + r"\n".join(doc["options"])
     )
     return _fewshot + question_input
 
@@ -97,7 +97,7 @@ def doc_to_text_lsat_lr(doc: dict) -> str:
         + doc["question"]
         + "\n"
         + "Choose from the following options:    "
-        + " ".join(doc["options"])
+        + r"\n".join(doc["options"])
     )
     return _fewshot + question_input
 
@@ -118,7 +118,7 @@ def doc_to_text_lsat_rc(doc: dict) -> str:
         + doc["question"]
         + "\n"
         + "Choose from the following options:    "
-        + " ".join(doc["options"])
+        + r"\n".join(doc["options"])
     )
     return _fewshot + question_input
 
@@ -139,10 +139,29 @@ def doc_to_text_sat_en(doc: dict) -> str:
         + doc["question"]
         + "\n"
         + "Choose from the following options:    "
-        + " ".join(doc["options"])
+        + r"\n".join(doc["options"])
     )
     return _fewshot + question_input
 
+def doc_to_text_sat_en_wop(doc: dict) -> str:
+    _fewshot = [
+        "Here are the answers for the problems in the exam.\n",
+        "Problem 1.   It can most reasonably be inferred from the passage that many people in the solar panel industry believe that\nChoose from the following options:    (A)consumers don’t understand how solar panels work. (B)two-sided cells have weaknesses that have not yet been discovered. (C)the cost of solar panels is too high and their power output too low. (D)Willow Glass is too inefficient to be marketable.\nThe answer is therefore C\n",
+        "Problem 2.   The primary purpose of the passage is to\nChoose from the following options:    (A)discuss the assumptions and reasoning behind a theory. (B)describe the aim, method, and results of an experiment. (C)present and analyze conflicting data about a phenomenon. (D)show the innovative nature of a procedure used in a study.\nThe answer is therefore B\n",
+        "Problem 3.   With which of the following statements about his father would the narrator most likely agree?\nChoose from the following options:    (A)He lacked affection for the narrator. (B)He disliked any unnecessary use of money. (C)He would not have approved of Sempere's gift. (D)He objected to the writings of Charles Dickens.\nThe answer is therefore C\n",
+    ]
+    _fewshot = "".join(_fewshot)
+    passage = ""
+    question_input = (
+        "Problem {}.   ".format(4)
+        + passage
+        + " "
+        + doc["question"]
+        + "\n"
+        + "Choose from the following options:    "
+        + r"\n".join(doc["options"])
+    )
+    return _fewshot + question_input
 
 def doc_to_text_sat_math(doc: dict) -> str:
     _fewshot = [
@@ -162,7 +181,7 @@ def doc_to_text_sat_math(doc: dict) -> str:
         + doc["question"]
         + "\n"
         + "Choose from the following options:    "
-        + " ".join(doc["options"])
+        + r"\n".join(doc["options"])
     )
     return _fewshot + question_input
 

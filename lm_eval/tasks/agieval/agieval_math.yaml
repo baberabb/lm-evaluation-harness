@@ -11,6 +11,7 @@ test_split: test
 num_fewshot: 0
 
 doc_to_text: !function utils_agimath.doc_to_text_math_fewshot
+process_results: !function utils_agimath.process_results_math
 doc_to_target: "{{answer}}"
 
 metric_list:
