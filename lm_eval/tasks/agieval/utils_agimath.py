@@ -31,17 +31,17 @@ def doc_to_text_math_fewshot(doc: dict) -> str:
 
 def remove_few_shot_prefix(string: str):
     prefix = "The answer is therefore"
-    if string.startswith(prefix):
-        string = string[len(prefix):].strip()
+    if string.strip().startswith(prefix):
+        string = string[len(prefix) :].strip()
     elif prefix in string:
         index = string.rfind(prefix)
         if index >= 0:
-            string = string[index + len(prefix):].strip()
+            string = string[index + len(prefix) :].strip()
     else:
         try:
             string = string.split()[0].strip()
-        except:
-            string=string
+        except:  # noqa: E722
+            string = string
     return string
 
 
@@ -51,12 +51,9 @@ def parse_math_answer(raw_string: str) -> str:
 
 
 def process_results_math(doc, results):
-    eval_logger.info(f"answer: {results}")
     completions = results[0]
     processed_answer = parse_math_answer(completions)
-    eval_logger.info(f"Result: {completions}")
-    eval_logger.info(f"Parsed: {processed_answer}")
-    if is_equiv(doc["answer"],processed_answer):
+    if is_equiv(doc["answer"], processed_answer):
         return {"acc": 1}
     else:
         return {"acc": 0}
@@ -74,7 +71,7 @@ def _fix_fracs(string):
             else:
                 try:
                     assert len(substr) >= 2
-                except:
+                except:  # noqa: E722
                     return string
                 a = substr[0]
                 b = substr[1]
@@ -105,7 +102,7 @@ def _fix_a_slash_b(string):
         assert string == "{}/{}".format(a, b)
         new_string = "\\frac{" + str(a) + "}{" + str(b) + "}"
         return new_string
-    except:
+    except:  # noqa: E722
         return string
 
 
@@ -169,7 +166,7 @@ def _strip_string(string):
 
     # remove percentage
     string = string.replace("\\%", "")
-    string = string.replace("\%", "")
+    string = string.replace("\%", "")  # noqa: W605
 
     # " 0." equivalent to " ." and "{0." equivalent to "{." Alternatively, add "0" if "." is the start of the string
     string = string.replace(" .", " 0.")
@@ -217,8 +214,9 @@ def is_equiv(str1, str2, verbose=False):
         if verbose:
             print(ss1, ss2)
         return ss1 == ss2
-    except:
+    except:  # noqa: E722
         return str1 == str2
+
 
 # def parse_math_answer(raw_string):
 #     if setting_name == "few-shot-CoT":
