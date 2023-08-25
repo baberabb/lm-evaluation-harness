@@ -1,0 +1,22 @@
+group:
+  - agieval
+task: agieval_math
+dataset_path: baber/agieval
+dataset_name: math_agieval
+
+output_type: greedy_until
+training_split: null
+validation_split: few_shot
+test_split: test
+num_fewshot: 0
+
+doc_to_text: !function utils_agimath.doc_to_text_math_fewshot
+doc_to_target: "{{answer}}"
+
+metric_list:
+  - metric: acc
+    aggregation: mean
+    higher_is_better: true
+  - metric: acc_norm
+    aggregation: mean
+    higher_is_better: true

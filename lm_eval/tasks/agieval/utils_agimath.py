@@ -32,11 +32,13 @@ def doc_to_text_math_fewshot(doc: dict) -> str:
 def remove_few_shot_prefix(string: str):
     prefix = "The answer is therefore"
     if string.startswith(prefix):
-        string = string[len(prefix) :].strip()
+        string = string[len(prefix):].strip()
     elif prefix in string:
         index = string.rfind(prefix)
         if index >= 0:
-            string = string[index + len(prefix) :].strip()
+            string = string[index + len(prefix):].strip()
+    else:
+        string = string.split()[0].strip()
     return string
 
 
@@ -46,6 +48,7 @@ def parse_math_answer(raw_string: str) -> str:
 
 
 def process_results_math(doc, results):
+    eval_logger.info(f"answer: {'results'}")
     completions = results[0]
     processed_answer = parse_math_answer(completions)
     eval_logger.info(f"Result: {completions}")
