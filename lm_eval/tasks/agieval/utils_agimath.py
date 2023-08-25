@@ -30,6 +30,7 @@ def doc_to_text_math_fewshot(doc: dict) -> str:
 
 
 def remove_few_shot_prefix(string: str):
+    eval_logger.info(f"answer: {string}")
     prefix = "The answer is therefore"
     if string.strip().startswith(prefix):
         string = string[len(prefix) :].strip()
@@ -202,8 +203,9 @@ def _strip_string(string):
 
 
 def is_equiv(str1, str2, verbose=False):
+    eval_logger.info(f"str1: {str1}, str2: {str2}")
     if str1 is None and str2 is None:
-        print("WARNING: Both None")
+        # print("WARNING: Both None")
         return True
     if str1 is None or str2 is None:
         return False
@@ -211,18 +213,7 @@ def is_equiv(str1, str2, verbose=False):
     try:
         ss1 = _strip_string(str1)
         ss2 = _strip_string(str2)
-        if verbose:
-            print(ss1, ss2)
+        eval_logger.info(f"stripped1: {str1}, stripped2: {str2}")
         return ss1 == ss2
     except:  # noqa: E722
         return str1 == str2
-
-
-# def parse_math_answer(raw_string):
-#     if setting_name == "few-shot-CoT":
-#         raw_string = extract_last_line(raw_string)
-#     if setting_name == "few-shot-CoT" or setting_name == "few-shot":
-#         raw_string = remove_few_shot_prefix(raw_string)
-#         return raw_string
-
-# extract_answer -> remove_few_shot_prefix ->
