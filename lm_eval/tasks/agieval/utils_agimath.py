@@ -30,9 +30,10 @@ def doc_to_text_math_fewshot(doc: dict) -> str:
 
 
 def remove_few_shot_prefix(string: str):
+    string = string.strip()
     eval_logger.info(f"answer: {string}")
     prefix = "The answer is therefore"
-    if string.strip().startswith(prefix):
+    if string.startswith(prefix):
         string = string[len(prefix) :].strip()
     elif prefix in string:
         index = string.rfind(prefix)
