@@ -15,7 +15,6 @@ process_results: !function utils_agimath.process_results_math
 doc_to_target: "{{answer}}"
 generation_kwargs:
   until:
-    - "\n"
     - "\n\n"
 
 metric_list:
