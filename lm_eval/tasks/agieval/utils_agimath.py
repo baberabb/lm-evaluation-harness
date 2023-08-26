@@ -31,14 +31,13 @@ def doc_to_text_math_fewshot(doc: dict) -> str:
 
 def remove_few_shot_prefix(string: str):
     string = string.strip()
-    eval_logger.info(f"answer: {string}")
     prefix = "The answer is therefore"
     if string.startswith(prefix):
-        string = string[len(prefix) :].strip()
+        string = string[len(prefix) :].split("\n")[0].strip()
     elif prefix in string:
         index = string.rfind(prefix)
         if index >= 0:
-            string = string[index + len(prefix) :].strip()
+            string = string[index + len(prefix) :].split("\n")[0].strip()
     return string
 
 
