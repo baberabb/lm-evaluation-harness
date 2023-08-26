@@ -34,7 +34,7 @@ def doc_to_text_aquarat(doc: dict) -> str:
         + doc["question"]
         + "\n"
         + "Choose from the following options:    "
-        + r"\n".join(doc["options"])
+        + "\n".join(doc["options"])
     )
     return _fewshot + question_input
 
@@ -55,7 +55,7 @@ def doc_to_text_logiqa(doc: dict) -> str:
         + doc["question"]
         + "\n"
         + "Choose from the following options:    "
-        + r"\n".join(doc["options"])
+        + "\n".join(doc["options"])
     )
     return _fewshot + question_input
 
@@ -76,7 +76,7 @@ def doc_to_text_lsat_ar(doc: dict) -> str:
         + doc["question"]
         + "\n"
         + "Choose from the following options:    "
-        + r"\n".join(doc["options"])
+        + "\n".join(doc["options"])
     )
     return _fewshot + question_input
 
@@ -97,7 +97,7 @@ def doc_to_text_lsat_lr(doc: dict) -> str:
         + doc["question"]
         + "\n"
         + "Choose from the following options:    "
-        + r"\n".join(doc["options"])
+        + "\n".join(doc["options"])
     )
     return _fewshot + question_input
 
@@ -118,7 +118,7 @@ def doc_to_text_lsat_rc(doc: dict) -> str:
         + doc["question"]
         + "\n"
         + "Choose from the following options:    "
-        + r"\n".join(doc["options"])
+        + "\n".join(doc["options"])
     )
     return _fewshot + question_input
 
@@ -139,9 +139,10 @@ def doc_to_text_sat_en(doc: dict) -> str:
         + doc["question"]
         + "\n"
         + "Choose from the following options:    "
-        + r"\n".join(doc["options"])
+        + "\n".join(doc["options"])
     )
     return _fewshot + question_input
+
 
 def doc_to_text_sat_en_wop(doc: dict) -> str:
     _fewshot = [
@@ -159,9 +160,10 @@ def doc_to_text_sat_en_wop(doc: dict) -> str:
         + doc["question"]
         + "\n"
         + "Choose from the following options:    "
-        + r"\n".join(doc["options"])
+        + "\n".join(doc["options"])
     )
     return _fewshot + question_input
+
 
 def doc_to_text_sat_math(doc: dict) -> str:
     _fewshot = [
@@ -181,7 +183,7 @@ def doc_to_text_sat_math(doc: dict) -> str:
         + doc["question"]
         + "\n"
         + "Choose from the following options:    "
-        + r"\n".join(doc["options"])
+        + "\n".join(doc["options"])
     )
     return _fewshot + question_input
 
