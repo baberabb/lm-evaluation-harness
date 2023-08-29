@@ -17,13 +17,13 @@ Choose from the following options: (A)<option1>...
 
 def doc_to_text_all(doc: dict) -> str:
     all_choices = " ".join(doc["options"])
-    return f"Problem {doc['question']}\nChoose from the following options: {all_choices}\nAnswer:"
+    return f"Problem: {doc['question']}\nChoose from the following options: {all_choices}\nAnswer:"
 
 
 def doc_to_text_s(doc: dict) -> str:
     all_choices = " ".join(doc["options"])
     passage = doc.get("passage", "")
-    return f"Problem {passage}\n{doc['question']}\nChoose from the following options: {all_choices}\nAnswer:"
+    return f"Problem: {passage}\n{doc['question']}\n{all_choices}\nAnswer:"
 
 
 # Few-shot 3-5
