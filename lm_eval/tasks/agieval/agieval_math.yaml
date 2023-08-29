@@ -1,5 +1,3 @@
-group:
-  - agieval
 task: agieval_math
 dataset_path: baber/agieval
 dataset_name: math_agieval
