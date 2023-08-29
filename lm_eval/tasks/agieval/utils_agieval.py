@@ -27,8 +27,8 @@ def doc_to_text_s(doc: dict) -> str:
 
 
 def doc_to_text_lsat(doc: dict) -> str:
-    all_choices = " ".join(doc["options"])
-    return f"Problem: {doc['question']}\nChoices: {all_choices}\nAnswer:"
+    all_choices = "\n".join(doc["options"])
+    return f"Problem: {doc['question']}\n{all_choices}\nAnswer:"
 
 
 # Few-shot 3-5
