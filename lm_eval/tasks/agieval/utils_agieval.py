@@ -26,6 +26,11 @@ def doc_to_text_s(doc: dict) -> str:
     return f"Problem: {passage}\n{doc['question']}\n{all_choices}\nAnswer:"
 
 
+def doc_to_text_lsat(doc: dict) -> str:
+    all_choices = " ".join(doc["options"])
+    return f"Problem: {doc['question']}\n{all_choices}\nAnswer:"
+
+
 # Few-shot 3-5
 def doc_to_text_aquarat(doc: dict) -> str:
     _fewshot = [
