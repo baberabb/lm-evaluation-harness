@@ -1,3 +1,5 @@
+import datasets
+
 # taken from
 # https://github.com/microsoft/AGIEval/blob/main/src/dataset_loader.py#L87
 
@@ -13,6 +15,19 @@ Choose from the following options: (A)<option1>...
 
 # The original adds \n at the end
 """
+
+
+def process_docs(dataset: datasets.Dataset) -> datasets.Dataset:
+    def _process_doc(doc):
+        out_doc = {
+            "question": doc["question"],
+            "options": doc["options"],
+            "answer": [x[1] for x in doc["options"]],
+            "label": doc["label"],
+        }
+        return out_doc
+
+    return dataset.map(_process_doc)
 
 
 def doc_to_text_all(doc: dict) -> str:
