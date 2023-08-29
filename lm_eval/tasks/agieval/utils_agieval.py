@@ -133,23 +133,39 @@ def doc_to_text_lsat_lr(doc: dict) -> str:
     return _fewshot + question_input
 
 
+def process_docs_rc(dataset: datasets.Dataset) -> datasets.Dataset:
+    def _process_doc(doc):
+        options = [x.replace(")", ") ") for x in doc["options"]]
+        out_doc = {
+            "passage": doc["passage"],
+            "question": doc["question"],
+            "options": options,
+            # "answer": [x[1] for x in doc["options"]],
+            "label": doc["label"],
+        }
+        return out_doc
+
+    return dataset.map(_process_doc)
+
+
 def doc_to_text_lsat_rc(doc: dict) -> str:
     _fewshot = [
         "Here are the answers for the problems in the exam.\n",
-        "Problem 1.    According to the passage, which one of the following distinguished the de futuro contract from the de praesenti contract?\nChoose from the following options:    (A)One was recognized by Alexandrine doctrine, while the other was considered a secular contract. (B)One required the permission of parents, while the other concerned only the couple involved. (C)One required the announcement of marriage banns, while the other could be entered into solely through a verbal contract. (D)One expressed future intent, while the other established an immediate, binding union. (E)One allowed the solemnization of Church ritual, while the other resulted in excommunication.\nThe answer is therefore D\n",
-        "Problem 2.    Which one of the following most accurately expresses the main point of the passage?\nChoose from the following options:    (A)The Disciples at Emmaus, van Meegeren's forgery of a Vermeer, was a failure in both aesthetic and artistic terms. (B)The aesthetic value of a work of art is less dependent on the work's visible characteristics than on certain intangible characteristics. (C)Forged artworks are artistically inferior to originals because artistic value depends in large part on originality of vision. (D)The most skilled forgers can deceive even highly qualified art experts into accepting their work as original. (E)Art critics tend to be unreliable judges of the aesthetic and artistic quality of works of art.\nThe answer is therefore C\n",
-        "Problem 3.    The author refers to the meteorological data gathered in North America over the past century in order to\nChoose from the following options:    (A)show how differing views on the extent of the rise in global temperature can be resolved (B)argue that any warming detected over the past century has most likely been the result of a natural climatic fluctuation (C)argue against the prevailing view that the amount of atmospheric CO has increased by about 20 percent over the past century (D)suggest that there should be more numerous and accurate observation points outside of North America (E)present evidence that casts doubt on the view that global temperature has increased over the past century\nThe answer is therefore E\n",
+        "Problem 1. According to the passage, which one of the following distinguished the de futuro contract from the de praesenti contract?\n(A) One was recognized by Alexandrine doctrine, while the other was considered a secular contract. (B) One required the permission of parents, while the other concerned only the couple involved. (C) One required the announcement of marriage banns, while the other could be entered into solely through a verbal contract. (D) One expressed future intent, while the other established an immediate, binding union. (E) One allowed the solemnization of Church ritual, while the other resulted in excommunication.\nAnswer: (D) One expressed future intent, while the other established an immediate, binding union.",
+        "Problem 2. Which one of the following most accurately expresses the main point of the passage?\n(A) The Disciples at Emmaus, van Meegeren's forgery of a Vermeer, was a failure in both aesthetic and artistic terms. (B) The aesthetic value of a work of art is less dependent on the work's visible characteristics than on certain intangible characteristics. (C) Forged artworks are artistically inferior to originals because artistic value depends in large part on originality of vision. (D) The most skilled forgers can deceive even highly qualified art experts into accepting their work as original. (E) Art critics tend to be unreliable judges of the aesthetic and artistic quality of works of art.\nAnswer: (E) Art critics tend to be unreliable judges of the aesthetic and artistic quality of works of art.",
+        "Problem 3. The author refers to the meteorological data gathered in North America over the past century in order to\n(A) show how differing views on the extent of the rise in global temperature can be resolved (B) argue that any warming detected over the past century has most likely been the result of a natural climatic fluctuation (C) argue against the prevailing view that the amount of atmospheric CO has increased by about 20 percent over the past century (D) suggest that there should be more numerous and accurate observation points outside of North America (E) present evidence that casts doubt on the view that global temperature has increased over the past century\nAnswer: (E) present evidence that casts doubt on the view that global temperature has increased over the past century",
     ]
-    _fewshot = "".join(_fewshot)
+    _fewshot = "\n\n".join(_fewshot)
     passage = doc.get("passage", "")
     question_input = (
         "Problem {}.   ".format(4)
         + passage
-        + " "
+        + "\n"
         + doc["question"]
         + "\n"
-        + "Choose from the following options:    "
-        + "\n".join(doc["options"])
+        + ""
+        + " ".join(doc["options"])
+        + "Answer:"
     )
     return _fewshot + question_input
 
