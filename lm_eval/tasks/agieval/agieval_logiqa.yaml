@@ -2,5 +2,4 @@ include: agieval_aquarat.yaml
 task: agieval_logiqa
 dataset_name: logiqa
 dataset_path: baber/agieval
-
-doc_to_text: !function utils_agieval.doc_to_text_logiqa
+num_fewshot: 3

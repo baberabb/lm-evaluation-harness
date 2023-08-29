@@ -8,9 +8,9 @@ output_type: multiple_choice
 training_split: null
 validation_split: few_shot
 test_split: test
-num_fewshot: 0
+num_fewshot: 5
 
-doc_to_text: !function utils_agieval.doc_to_text_aquarat
+doc_to_text: "Problem {{question}}\nAnswer:"
 doc_to_target: "{{label}}"
 doc_to_choice: "{{options}}"
 

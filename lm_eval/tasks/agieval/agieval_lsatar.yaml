@@ -2,5 +2,4 @@ include: agieval_aquarat.yaml
 task: agieval_lsatar
 dataset_name: lsat_ar
 dataset_path: baber/agieval
-
-doc_to_text: !function utils_agieval.doc_to_text_lsat_ar
+num_fewshot: 3
