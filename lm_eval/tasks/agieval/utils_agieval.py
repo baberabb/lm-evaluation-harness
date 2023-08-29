@@ -23,12 +23,12 @@ def doc_to_text_all(doc: dict) -> str:
 def doc_to_text_s(doc: dict) -> str:
     all_choices = " ".join(doc["options"])
     passage = doc.get("passage", "")
-    return f"Problem: {passage}\n{doc['question']}\nChoices: {all_choices}\nAnswer:"
+    return f"Problem: {passage}\n{doc['question']}\n{all_choices}\nAnswer:"
 
 
 def doc_to_text_lsat(doc: dict) -> str:
     all_choices = " ".join(doc["options"])
-    return f"Problem: {doc['question']}\n{all_choices}\nAnswer:"
+    return f"Problem: {doc['question']}\nChoices: {all_choices}\nAnswer:"
 
 
 # Few-shot 3-5
