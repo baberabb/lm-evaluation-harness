@@ -16,14 +16,12 @@ generation_kwargs:
   do_sample: false
   temperature: 0.0
   until:
-    - "\n\n"
+    - "\nclass"
+    - "\ndef"
+    - "\n#"
+    - "\nif"
+    - "\nprint"
 repeats: 1
 num_fewshot: 0
-until:
-  - "\nclass"
-  - "\ndef"
-  - "\n#"
-  - "\nif"
-  - "\nprint"
 metadata:
   - version: 0.0
