@@ -2,7 +2,7 @@ group:
   - code-problems
 task: humaneval
 dataset_path: openai_humaneval
-dataset_name: main
+dataset_name: openai_humaneval
 output_type: generate_until
 training_split: null
 fewshot_split: null
@@ -12,12 +12,18 @@ doc_to_target: "{{canonical_solution}}" #" {{answer.split('### ')[-1].rstrip()}}
 metric_list:
   - metric: bypass
 generation_kwargs:
-  max_gen_toks: 256
+  max_gen_toks: 200
   do_sample: false
   temperature: 0.0
   until:
     - "\n\n"
 repeats: 1
 num_fewshot: 0
+until:
+  - "\nclass"
+  - "\ndef"
+  - "\n#"
+  - "\nif"
+  - "\nprint"
 metadata:
   - version: 0.0
