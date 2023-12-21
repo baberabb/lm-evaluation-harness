@@ -22,17 +22,25 @@ jobs:
           echo "Task | Group | Output Type | Metadata" > "$output_file"
           echo "--- | --- | --- | ---" >> "$output_file"
           find . -type f -name '*.yaml' | while read -r file; do
-              task=$(yq e '.task' "$file")
-              group=$(yq e '.group[]' "$file")
-              output_type=$(yq e '.output_type' "$file")
-              metadata=$(yq e '.metadata' "$file")
+              task=$(yq e '.task // "N/A"' "$file")
+              group=$(yq e '.group[] // empty' "$file")
+              output_type=$(yq e '.output_type // empty' "$file")
+              metadata=$(yq e '.metadata | if type=="array" then join(", ") else . // empty' "$file")
+              include_file=$(yq e '.include // empty' "$file")
+              if [ ! -z "$include_file" ]; then
+                  include_path=$(dirname "$file")/"$include_file"
+                  if [ -z "$group" ]; then
+                      group=$(yq e '.group[] // "N/A"' "$include_path")
+                  fi
+                  if [ -z "$output_type" ]; then
+                      output_type=$(yq e '.output_type // "N/A"' "$include_path")
+                  fi
+                  if [ -z "$metadata" ]; then
+                      metadata=$(yq e '.metadata | if type=="array" then join(", ") else . // "N/A" end' "$include_path")
+                  fi
+              fi
               echo "$task | $group | $output_type | $metadata" >> "$output_file"
           done
 
       - name: Add and Commit Changes
         uses: EndBug/add-and-commit@v9
-        with:
-          add: 'lm_eval/tasks/tasks_summary.md'
-          commit: --signoff
-          message: 'Update tasks summary'
-          push: true
