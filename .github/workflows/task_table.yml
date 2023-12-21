@@ -12,8 +12,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install yq
-        run: sudo pip install yq
+      - name: Install yq (Go version)
+        run: |
+          sudo add-apt-repository ppa:rmescandon/yq
+          sudo apt update
+          sudo apt install yq -y
 
       - name: Generate Tasks Summary Table
         run: |
@@ -29,9 +32,15 @@ jobs:
               include_file=$(yq e '.include // null' "$file")
               if [ "$include_file" != "null" ]; then
                   include_path=$(dirname "$file")/"$include_file"
-                  group=$(yq e '.group[] // "N/A"' "$include_path")
-                  output_type=$(yq e '.output_type // "N/A"' "$include_path")
-                  metadata=$(yq e '.metadata | if type=="array" then join(", ") else . // "N/A" end' "$include_path")
+                  if [ -z "$group" ]; then
+                      group=$(yq e '.group[] // "N/A"' "$include_path")
+                  fi
+                  if [ -z "$output_type" ]; then
+                      output_type=$(yq e '.output_type // "N/A"' "$include_path")
+                  fi
+                  if [ -z "$metadata" ]; then
+                      metadata=$(yq e '.metadata | if type=="array" then join(", ") else . // "N/A" end' "$include_path")
+                  fi
               fi
               echo "$task | $group | $output_type | $metadata" >> "$output_file"
           done
