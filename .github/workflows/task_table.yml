@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install yq
-        run: sudo snap install yq
+        run: sudo pip install yq
 
       - name: Generate Tasks Summary Table
         run: |
@@ -23,21 +23,15 @@ jobs:
           echo "--- | --- | --- | ---" >> "$output_file"
           find . -type f -name '*.yaml' | while read -r file; do
               task=$(yq e '.task // "N/A"' "$file")
-              group=$(yq e '.group[] // empty' "$file")
-              output_type=$(yq e '.output_type // empty' "$file")
-              metadata=$(yq e '.metadata | if type=="array" then join(", ") else . // empty' "$file")
-              include_file=$(yq e '.include // empty' "$file")
-              if [ ! -z "$include_file" ]; then
+              group=$(yq e '.group[] // "N/A"' "$file")
+              output_type=$(yq e '.output_type // "N/A"' "$file")
+              metadata=$(yq e '.metadata | if type=="array" then join(", ") else . // "N/A" end' "$file")
+              include_file=$(yq e '.include // null' "$file")
+              if [ "$include_file" != "null" ]; then
                   include_path=$(dirname "$file")/"$include_file"
-                  if [ -z "$group" ]; then
-                      group=$(yq e '.group[] // "N/A"' "$include_path")
-                  fi
-                  if [ -z "$output_type" ]; then
-                      output_type=$(yq e '.output_type // "N/A"' "$include_path")
-                  fi
-                  if [ -z "$metadata" ]; then
-                      metadata=$(yq e '.metadata | if type=="array" then join(", ") else . // "N/A" end' "$include_path")
-                  fi
+                  group=$(yq e '.group[] // "N/A"' "$include_path")
+                  output_type=$(yq e '.output_type // "N/A"' "$include_path")
+                  metadata=$(yq e '.metadata | if type=="array" then join(", ") else . // "N/A" end' "$include_path")
               fi
               echo "$task | $group | $output_type | $metadata" >> "$output_file"
           done
