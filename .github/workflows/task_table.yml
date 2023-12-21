@@ -1,0 +1,38 @@
+name: Generate Tasks Summary on Push
+
+on:
+  push:
+    branches:
+      - 'tasktable'
+
+jobs:
+  generate-summary:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install yq
+        run: sudo snap install yq
+
+      - name: Generate Tasks Summary Table
+        run: |
+          cd lm_eval/tasks
+          output_file="tasks_summary.md"
+          echo "Task | Group | Output Type | Metadata" > "$output_file"
+          echo "--- | --- | --- | ---" >> "$output_file"
+          find . -type f -name '*.yaml' | while read -r file; do
+              task=$(yq e '.task' "$file")
+              group=$(yq e '.group[]' "$file")
+              output_type=$(yq e '.output_type' "$file")
+              metadata=$(yq e '.metadata' "$file")
+              echo "$task | $group | $output_type | $metadata" >> "$output_file"
+          done
+
+      - name: Add and Commit Changes
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: 'lm_eval/tasks/tasks_summary.md'
+          commit: --signoff
+          message: 'Update tasks summary'
+          push: true
