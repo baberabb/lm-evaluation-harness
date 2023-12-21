@@ -28,16 +28,16 @@ jobs:
               task=$(yq e '.task' "$file")
               task=${task:-"N/A"}
 
-              include_file=$(yq e '.include' "$file")
-              if [ -n "$include_file" ]; then
+              include_file=$(yq e '.include // "null"' "$file")
+              if [ "$include_file" != "null" -a -f "$include_file" ]; then
                   include_path=$(dirname "$file")/"$include_file"
-                  group=$(yq e '.group[]' "$include_path")
-                  output_type=$(yq e '.output_type' "$include_path")
-                  metadata=$(yq e '.metadata' "$include_path")
+                  group=$(yq e '.group[] // "N/A"' "$include_path")
+                  output_type=$(yq e '.output_type // "N/A"' "$include_path")
+                  metadata=$(yq e '.metadata // "N/A"' "$include_path")
               else
-                  group=$(yq e '.group[]' "$file")
-                  output_type=$(yq e '.output_type' "$file")
-                  metadata=$(yq e '.metadata' "$file")
+                  group=$(yq e '.group[] // "N/A"' "$file")
+                  output_type=$(yq e '.output_type // "N/A"' "$file")
+                  metadata=$(yq e '.metadata // "N/A"' "$file")
               fi
 
               group=${group:-"N/A"}
