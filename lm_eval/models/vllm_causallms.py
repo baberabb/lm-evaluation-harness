@@ -329,13 +329,18 @@ class VLLM(LM):
                 requests=context_encoding,
                 generate=True,
                 max_tokens=max_gen_toks,
-                stop=until,
+                stop=None,
                 **kwargs,
             )
 
             # cache generations
             for output, context in zip(cont, context):
                 generated_text = output.outputs[0].text
+                for term in until:
+                    if len(term) > 0:
+                        # ignore '' separator,
+                        # for seq2seq case where self.tok_decode(self.eot_token_id) = ''
+                        generated_text = generated_text.split(term)[0]
                 res.append(generated_text)
                 self.cache_hook.add_partial(
                     "generate_until", (context, gen_kwargs), generated_text
