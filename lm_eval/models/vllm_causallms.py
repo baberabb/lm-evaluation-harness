@@ -177,22 +177,26 @@ class VLLMCAUSAL(LM):
                 temperature=0, prompt_logprobs=1, max_tokens=1
             )
         if self.data_parallel_size > 1:
+
+            @ray.serve.deployment(
+                ray_actor_options={"num_gpus": int(self.tensor_parallel_size)},
+                num_replicas=self.data_parallel_size,
+            )
+            class InferModel:
+                def __init__(self, **kwargs):
+                    self.model = VLLM(**kwargs)
+
+                def generate(self, requests, sampling_params):
+                    self.model.generate(
+                        requests=requests, sampling_params=sampling_params
+                    )
+
+            models = InferModel.bind(**self.model_args)
             requests = [list(x) for x in divide(requests, self.data_parallel_size)]
+            handle = ray.serve.run(models, name="basic_chat")
+            response_handle = handle.generate.remote(requests, sampling_params)
 
-            llm_remote = ray.remote(VLLM)
-            actor_handles = [
-                llm_remote.remote(**self.model_args)
-                for i in range(self.data_parallel_size)
-            ]
-            results = [
-                actor_handle.generate.remote(
-                    prompt_token_ids=request, sampling_params=sampling_params
-                )
-                for actor_handle, request in zip(actor_handles, requests)
-            ]
-            outputs = ray.get(results)
-
-            return [item for sublist in outputs for item in sublist]
+            return [item for sublist in response_handle for item in sublist]
 
         outputs = self.model.generate(
             prompt_token_ids=requests,
