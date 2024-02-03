@@ -18,7 +18,6 @@ from lm_eval.utils import (
 
 try:
     import ray
-    from ray.util.multiprocessing import Pool
     from vllm import LLM, SamplingParams
     from vllm.transformers_utils.tokenizer import get_tokenizer
 except ModuleNotFoundError:
@@ -27,7 +26,6 @@ except ModuleNotFoundError:
 eval_logger = eval_logger
 
 
-# adapted from https://github.com/vllm-project/vllm/issues/367#issuecomment-1788341727
 def run_inference_one_model(
     model_args: dict, sampling_params, requests: List[List[int]]
 ):
@@ -178,11 +176,21 @@ class VLLM(LM):
                 temperature=0, prompt_logprobs=1, max_tokens=1
             )
         if self.data_parallel_size > 1:
-            requests = [list(x) for x in divide(requests, self.data_parallel_size)]
-            inputs = [(self.model_args, sampling_params, req) for req in requests]
+            remote_run_inference_one_model = ray.remote(
+                run_inference_one_model
+            ).options(num_gpus=self.tensor_parallel_size)
 
-            with Pool(self.data_parallel_size) as pool:
-                results = pool.starmap(run_inference_one_model, inputs)
+            requests = [list(x) for x in divide(requests, self.data_parallel_size)]
+
+            result_ids = [
+                remote_run_inference_one_model.remote(
+                    self.model_args, sampling_params, r
+                )
+                for r in requests
+            ]
+
+            results = ray.get(result_ids)
+
             # Invoke ray.shutdown() to prevent hang-ups if subsequent calls required.
             ray.shutdown()
             # flatten results
