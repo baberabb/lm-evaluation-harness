@@ -14,9 +14,9 @@ task_manager = tasks.TaskManager()
 class TEST_VLLM:
     vllm = pytest.importorskip("vllm")
     try:
-        from lm_eval.models.vllm_causallms import VLLM
+        from lm_eval.models.vllm_causallms import VLLMCAUSAL
 
-        LM = VLLM(pretrained="EleutherAI/pythia-70m")
+        LM = VLLMCAUSAL(pretrained="EleutherAI/pythia-70m")
     except ModuleNotFoundError:
         pass
     torch.use_deterministic_algorithms(True)

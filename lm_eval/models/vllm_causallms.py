@@ -18,7 +18,8 @@ from lm_eval.utils import (
 
 try:
     import ray
-    from vllm import LLM, SamplingParams
+    from vllm import LLM as VLLM
+    from vllm import SamplingParams
     from vllm.transformers_utils.tokenizer import get_tokenizer
 except ModuleNotFoundError:
     pass
@@ -29,12 +30,12 @@ eval_logger = eval_logger
 def run_inference_one_model(
     model_args: dict, sampling_params, requests: List[List[int]]
 ):
-    llm = LLM(**model_args)
+    llm = VLLM(**model_args)
     return llm.generate(prompt_token_ids=requests, sampling_params=sampling_params)
 
 
 @register_model("vllm")
-class VLLM(LM):
+class VLLMCAUSAL(LM):
     _DEFAULT_MAX_LENGTH = 2048
 
     def __init__(
@@ -96,7 +97,7 @@ class VLLM(LM):
             else batch_size
         )
         if self.data_parallel_size <= 1:
-            self.model = LLM(**self.model_args)
+            self.model = VLLM(**self.model_args)
         else:
             self.model_args["worker_use_ray"] = True
             self.batch_size = "auto"
@@ -176,25 +177,22 @@ class VLLM(LM):
                 temperature=0, prompt_logprobs=1, max_tokens=1
             )
         if self.data_parallel_size > 1:
-            remote_run_inference_one_model = ray.remote(
-                run_inference_one_model
-            ).options(num_gpus=self.tensor_parallel_size)
-
             requests = [list(x) for x in divide(requests, self.data_parallel_size)]
 
-            result_ids = [
-                remote_run_inference_one_model.remote(
-                    self.model_args, sampling_params, r
-                )
-                for r in requests
+            llm_remote = ray.remote(VLLM)
+            actor_handles = [
+                llm_remote.remote(**self.model_args)
+                for i in range(self.data_parallel_size)
             ]
+            results = [
+                actor_handle.generate.remote(
+                    prompt_token_ids=request, sampling_params=sampling_params
+                )
+                for actor_handle, request in zip(actor_handles, requests)
+            ]
+            outputs = ray.get(results)
 
-            results = ray.get(result_ids)
-
-            # Invoke ray.shutdown() to prevent hang-ups if subsequent calls required.
-            ray.shutdown()
-            # flatten results
-            return [item for sublist in results for item in sublist]
+            return [item for sublist in outputs for item in sublist]
 
         outputs = self.model.generate(
             prompt_token_ids=requests,
