@@ -735,13 +735,21 @@ class HFLM(TemplateLM):
         new_reqs = []
         for req in requests:
             context, continuation = req.args[0].strip(), req.args[1]
+            contexts: list = context.split("FEWSHOT_DELIMITER")
+            contexts: list[list[str]] = [c.split("TARGET_DELIMITER") for c in contexts]
+
             chat = []
             if self.system_prompt is not None:
                 chat += [{"role": "system", "content": self.system_prompt}]
-
-            chat += [
-                {"role": "user", "content": context},
-            ]
+            for text, target in contexts[:-1]:
+                chat += [
+                    {"role": "user", "content": text},
+                    {"role": "assistant", "content": target},
+                ]
+            chat += [{"role": "user", "content": contexts[-1][0]}]
+            # chat += [
+            #     {"role": "user", "content": context},
+            # ]
             # TODO: expose settings for chat formatting:
             # - whether some "trigger" / start of assistant response might be placed in assistant's generation for it
             # - if few-shot, should the fewshots be placed in separate convo turns? provided in user's single turn?...
