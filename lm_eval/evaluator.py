@@ -25,7 +25,7 @@ from lm_eval.utils import (
 def simple_evaluate(
     model,
     model_args=None,
-    tasks=[],
+    tasks=None,
     num_fewshot=None,
     batch_size=None,
     max_batch_size=None,
@@ -80,6 +80,8 @@ def simple_evaluate(
         1234
     )  # TODO: this may affect training runs that are run with evaluation mid-run.
 
+    if tasks is None:
+        tasks = []
     assert (
         tasks != []
     ), "No tasks specified, or no tasks found. Please verify the task names."
@@ -122,7 +124,7 @@ def simple_evaluate(
     task_dict = lm_eval.tasks.get_task_dict(tasks)
     for task_name in task_dict.keys():
         task_obj = task_dict[task_name]
-        if type(task_obj) == tuple:
+        if isinstance(task_obj, tuple):
             group, task_obj = task_obj
             if task_obj is None:
                 continue
@@ -158,11 +160,16 @@ def simple_evaluate(
     )
 
     if lm.rank == 0:
+        if isinstance(model, str):
+            model_name = model
+        elif hasattr(model, "config") and hasattr(model.config, "_name_or_path"):
+            model_name = model.config._name_or_path
+        else:
+            model_name = type(model).__name__
+
         # add info about the model and few shot config
         results["config"] = {
-            "model": model
-            if isinstance(model, str)
-            else model.model.config._name_or_path,
+            "model": model_name,
             "model_args": model_args,
             "batch_size": batch_size,
             "batch_sizes": list(lm.batch_sizes.values())
@@ -237,7 +244,7 @@ def evaluate(
 
     # get lists of each type of request
     for task_name, task in task_dict.items():
-        if type(task) == tuple:
+        if isinstance(task, tuple):
             group_name, task = task
             task_hierarchy[group_name].append(task_name)
             versions[group_name] = "N/A"
@@ -311,7 +318,7 @@ def evaluate(
     ### Run LM on inputs, get all outputs ###
     # execute each type of request
     for reqtype, reqs in requests.items():
-        eval_logger.info("Running {} requests".format(reqtype))
+        eval_logger.info(f"Running {reqtype} requests")
         # create `K` copies of each request `req` based off `K = req.repeats`
         cloned_reqs = []
         for req in reqs:
@@ -334,7 +341,7 @@ def evaluate(
     ### Postprocess outputs ###
     # TODO: del model here, maybe (idea: allow user to specify device of e.g. reward model separately)
     for task_name, task in task_dict.items():
-        if type(task) == tuple:
+        if isinstance(task, tuple):
             group, task = task
             if task is None:
                 continue
@@ -345,7 +352,7 @@ def evaluate(
 
     # unpack results and sort back in order and return control to Task
     for task_name, task in task_dict.items():
-        if type(task) == tuple:
+        if isinstance(task, tuple):
             group, task = task
             if task is None:
                 continue
@@ -396,10 +403,10 @@ def evaluate(
         vals_torch = collections.defaultdict(list)
         for (task_name, key, metric), items in vals.items():
             numitem = 0
-            if type(items[0]) == tuple:
+            if isinstance(items[0], tuple):
                 numitem = len(items[0])
 
-            if isinstance(items[0], (str, list)):
+            if isinstance(items[0], (str, list, tuple)):
                 # handle the string case
                 gathered_items = [None] * lm.accelerator.num_processes
                 torch.distributed.all_gather_object(gathered_items, items)
@@ -442,7 +449,7 @@ def evaluate(
             task = task_dict[task_name]
             metric_key = metric + "," + key
 
-            if type(task) == tuple:
+            if isinstance(task, tuple):
                 group_name, task = task
             else:
                 group_name = None
@@ -492,10 +499,13 @@ def evaluate(
                         ]:
                             stderr = "_stderr,".join(metric.split(","))
                             stderr_score = results[task][stderr]
-                            var_score = stderr_score**2
-                            metric_score = results[task][metric]
+                            if stderr_score == "N/A":
+                                var_score = "N/A"
+                            else:
+                                var_score = stderr_score**2
+                                all_stderr.append(stderr)
 
-                            all_stderr.append(stderr)
+                            metric_score = results[task][metric]
 
                             if metric in results[group]:
                                 results[group][metric] = (
@@ -503,15 +513,20 @@ def evaluate(
                                     + metric_score * current_size
                                 ) / (total_size + current_size)
                                 # $$s_z^2 = \frac{(n-1) s_x^2 + (m-1) s_y^2}{n+m-1} + \frac{nm(\bar x - \bar y)^2}{(n+m)(n+m-1)}.$$
-                                results[group][stderr] = (
-                                    (total_size - 1) * results[group][stderr]
-                                    + (current_size - 1) * var_score
-                                ) / (
-                                    total_size + current_size - 1
-                                ) + total_size * current_size / (
-                                    (total_size + current_size)
-                                    * (total_size + current_size - 1)
-                                ) * (results[group][metric] - metric_score) ** 2
+                                if var_score == "N/A" or results[group][stderr] == "N/A":
+                                    results[group][stderr] = "N/A"
+                                else:
+                                    results[group][stderr] = (
+                                        (total_size - 1) * results[group][stderr]
+                                        + (current_size - 1) * var_score
+                                    ) / (
+                                        total_size + current_size - 1
+                                    ) + total_size * current_size / (
+                                        (total_size + current_size)
+                                        * (total_size + current_size - 1)
+                                    ) * (
+                                        results[group][metric] - metric_score
+                                    ) ** 2
                             else:
                                 results[group][metric] = metric_score
                                 results[group][stderr] = var_score
