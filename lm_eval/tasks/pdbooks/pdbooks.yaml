@@ -1,0 +1,14 @@
+dataset_path: baber/pdbooks_test
+task: pdbooks
+test_split: test
+target_delimiter: ""
+output_type: multiple_choice
+doc_to_text: !function pdutils.doc_to_text
+doc_to_choice: !function pdutils.doc_to_choice
+doc_to_target: target
+metric_list:
+  - metric: acc
+    aggregation: mean
+    higher_is_better: true
+metadata:
+  version: 0.0
