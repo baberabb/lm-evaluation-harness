@@ -635,7 +635,7 @@ class HFLM(TemplateLM):
 
         # if OOM, then halves batch_size and tries again
         @find_executable_batch_size(starting_batch_size=self.max_batch_size)
-        def forward_batch(batch_size):
+        def forward_batch(batch_size: int) -> int:
             if self.AUTO_MODEL_CLASS == transformers.AutoModelForSeq2SeqLM:
                 length = max(max_context_enc, max_cont_enc)
                 batched_conts = torch.ones(
@@ -737,7 +737,12 @@ class HFLM(TemplateLM):
     def tok_decode(self, tokens, skip_special_tokens=True):
         return self.tokenizer.decode(tokens, skip_special_tokens=skip_special_tokens)
 
-    def _model_call(self, inps, attn_mask=None, labels=None):
+    def _model_call(
+        self,
+        inps: torch.Tensor,
+        attn_mask: Optional[torch.Tensor] = None,
+        labels: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
         """
         :param inps: torch.Tensor
             A torch tensor of shape [batch, (sequence_ctx + sequence_cont)] or of shape
@@ -763,7 +768,14 @@ class HFLM(TemplateLM):
                 assert self.AUTO_MODEL_CLASS == transformers.AutoModelForCausalLM
                 return self.model(inps).logits
 
-    def _model_generate(self, context, max_length, stop, **generation_kwargs):
+    def _model_generate(
+        self,
+        context: torch.Tensor,
+        attention_mask: torch.Tensor,
+        max_length: int,
+        stop: List[str],
+        **generation_kwargs,
+    ) -> torch.Tensor:
         # temperature = 0.0 if not set
         # if do_sample is false and temp==0.0:
         # remove temperature, as do_sample=False takes care of this
@@ -783,6 +795,7 @@ class HFLM(TemplateLM):
         )
         return self.model.generate(
             input_ids=context,
+            attention_mask=attention_mask,
             max_length=max_length,
             stopping_criteria=stopping_criteria,
             pad_token_id=self.tokenizer.pad_token_id,
@@ -870,7 +883,7 @@ class HFLM(TemplateLM):
 
         return loglikelihoods
 
-    def _batch_scheduler(self, pos, n_reordered_requests):
+    def _batch_scheduler(self, pos: int, n_reordered_requests: List[int]) -> int:
         sched = pos // int(len(n_reordered_requests) / self.batch_schedule)
         if sched in self.batch_sizes:
             return self.batch_sizes[sched]
