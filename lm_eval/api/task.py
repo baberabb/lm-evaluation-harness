@@ -29,7 +29,7 @@ from lm_eval.caching.cache import load_from_cache, save_to_cache
 from lm_eval.config.metric import MetricConfig
 from lm_eval.config.task import DataSet, TaskConfig
 from lm_eval.filters import build_filter_ensemble
-from lm_eval.utils import get_parameter_info, merge_dicts, validate_index
+from lm_eval.utils import get_parameter_info, merge_dict_values, validate_index
 
 
 ALL_OUTPUT_TYPES = [
@@ -1290,7 +1290,7 @@ class ConfigurableTask(Task):
             ):
                 return self.config.process_results(doc, results, handle_repeats=True)
             else:
-                return merge_dicts(
+                return merge_dict_values(
                     [self.config.process_results(doc, x)] for x in results
                 )
         result_dict = {}
