@@ -3,25 +3,32 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Union
+from typing import TYPE_CHECKING, Any, Callable
 
 import datasets
 
 from lm_eval.api.filter import FilterEnsemble
 from lm_eval.api.instance import Instance, OutputType
+from lm_eval.api.task import ConfigurableTask
 from lm_eval.config.metric import MetricConfig
 from lm_eval.config.utils import maybe_serialize
 
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+    from typing import Any
+
+    import datasets
+
     from lm_eval.api.samplers import ContextSampler
-    from lm_eval.api.task import Task
+
+    # from lm_eval.api.task import Task
     from lm_eval.config.template import TemplateConfig
 
-eval_logger = logging.getLogger(__name__)
+    DataSet = datasets.Dataset | Iterable[dict[str, Any]]
+    DSplits = dict[str, DataSet]
 
-DataSet = Union[datasets.Dataset, Iterable[dict[str, Any]]]
-DSplits = dict[str, DataSet]
+eval_logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -133,7 +140,7 @@ class FewshotConfig:
             return self.sampler
 
     def init_sampler(
-        self, docs: list[dict], task: Task, rnd=None, fewshot_indices=None
+        self, docs: list[dict], task: ConfigurableTask, rnd=None, fewshot_indices=None
     ) -> ContextSampler:
         """Initialize the sampler with the given documents and task."""
         if rnd is None:
@@ -149,7 +156,7 @@ class FewshotConfig:
         )  # type: ignore
 
 
-@dataclass
+@dataclass(kw_only=True)
 class TaskConfig:
     # task naming/registry
     task: str | None = None
@@ -411,8 +418,8 @@ class TaskConfig:
         # Extract base configuration from template
         config_dict = {
             "task": template.task,
-            "doc_to_text": template.doc_to_text,
-            "doc_to_choice": template.doc_to_choice,
+            "doc_to_text": template._doc_to_text,
+            "doc_to_choice": template._doc_to_choice,
             "doc_to_target": template.doc_to_target,
             "description": template.description,
             "target_delimiter": template.target_delimiter,
@@ -450,7 +457,10 @@ class TaskConfig:
                     config_dict["output_type"] = "multiple_choice"
 
         # Override with any user-provided kwargs
-        config_dict.update(kwargs)
+        extra_fields = {**template._extra_fields}
+        extra_fields.pop("template", None)
+        config_dict.update(**template._extra_fields)
+        config_dict.pop("template", None)
 
         # Create and return TaskConfig instance
         return cls(**config_dict)

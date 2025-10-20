@@ -611,7 +611,9 @@ class ConfigurableTask:
         self.fewshot_rnd = 1234
 
         # Use new configurations if there was no preconfiguration
-        if self.config is None:
+        if isinstance(config, TaskConfig):
+            self._config = config
+        elif self.config is None:
             self._config = TaskConfig.from_yaml(config)
         # Overwrite configs
         else:
@@ -759,13 +761,19 @@ class ConfigurableTask:
                 return self.config.process_docs(self.dataset[self.config.test_split])
             return self.dataset[self.config.test_split]
 
+    def get_docs(self, subset: str):
+        if subset := getattr(self.config, subset):
+            if self.config.process_docs is not None:
+                assert self.dataset is not None, "dataset must be set in __init__"
+                return self.config.process_docs(self.dataset[subset])
+            return self.dataset[subset]
+
     def fewshot_docs(self):
         docs = self.config.fewshot_cfg.get_docs(self.dataset)
 
         if docs is not None:
             return docs
 
-        # Fallback to parent implementation
         if (
             (_num_fewshot := self.config.num_fewshot)
             and isinstance(_num_fewshot, int)
@@ -777,7 +785,17 @@ class ConfigurableTask:
                 "Using preconfigured rule."
             )
 
-        return super().fewshot_docs()
+            if self.config.training_split is not None:
+                return self.training_docs()
+
+            if self.config.validation_split is not None:
+                return self.validation_docs()
+
+            eval_logger.warning(
+                f"[Task: {self.config.task}] has_training_docs and has_validation_docs are False"
+                ", using test_docs as fewshot_docs but this is not recommended."
+            )
+            return self.test_docs()
 
     def apply_filters(self):
         """Iterates over FilterEnsembles and applies them to instances"""
@@ -963,6 +981,8 @@ class ConfigurableTask:
                 return ast.literal_eval(utils.apply_template(doc_to_choice, doc))
         elif isinstance(doc_to_choice, list):
             return doc_to_choice
+        elif callable(doc_to_choice):
+            return doc_to_choice(doc)
         # elif isinstance(doc_to_choice, dict):
         #     return list(doc_to_choice.values())
         # elif hasattr(doc_to_choice, "get_answer_choices_list"):
@@ -1392,6 +1412,10 @@ class ConfigurableTask:
                     doc=doc,
                     arguments=arg,
                     idx=i,
+                    target=self.doc_to_target(doc),
+                    task_name=kwargs.get("metadata", (None, None, None))[0],
+                    doc_id=kwargs.get("metadata", (None, None, None))[1],
+                    repeats=kwargs.get("metadata", (None, None, None))[2],
                     **kwargs,
                 )
                 for i, arg in enumerate(arguments)
@@ -1405,6 +1429,10 @@ class ConfigurableTask:
             doc=doc,
             arguments=arguments,
             idx=0,
+            target=self.doc_to_target(doc),
+            task_name=kwargs.get("metadata", (None, None, None))[1],
+            doc_id=kwargs.get("metadata", (None, None, None))[1],
+            repeats=kwargs.get("metadata", (None, None, None))[2],
             **kwargs,
         )
 
@@ -1735,6 +1763,18 @@ class ConfigurableTask:
                     eval_logger.debug(
                         f'Both target_delimiter "{self.config.target_delimiter}" and target choice: "{choice}" do not have whitespace, ignore if the language you are evaluating on does not require/use whitespace'
                     )
+
+    def set_config(self, key: str, value: Any, update: bool = False) -> None:
+        """Set or update the configuration for a given key."""
+        if update:
+            current_value = getattr(self._config, key, {})
+            if not isinstance(current_value, dict):
+                raise TypeError(
+                    f"Expected a dict for key '{key}', got {type(current_value).__name__} instead."
+                )
+            current_value.update(value)
+        else:
+            setattr(self._config, key, value)
 
     def __repr__(self):
         return (

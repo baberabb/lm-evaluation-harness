@@ -9,6 +9,8 @@ from lm_eval.api.group import GroupConfig
 
 # from lm_eval.api.task import ConfigurableTask, Task  # noqa: F401  (typing)
 from lm_eval.api.task import ConfigurableTask
+from lm_eval.config.task import TaskConfig
+from lm_eval.config.template import MCQTemplateConfig
 from lm_eval.tasks._config_loader import load_yaml as load_cfg
 from lm_eval.tasks.index import Entry, Kind
 
@@ -55,6 +57,13 @@ class TaskFactory:
             if isinstance(obj, ConfigurableTask):
                 obj.config.task = entry.name
             return obj
+        if "template" in cfg:
+            match cfg["template"]:
+                case "mcq":
+                    return ConfigurableTask(
+                        config=MCQTemplateConfig.from_config(cfg)
+
+                    )
 
         # YAML task
         return ConfigurableTask(config=cfg)  # type: ignore[arg-type]
