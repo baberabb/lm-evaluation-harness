@@ -72,7 +72,9 @@ class MCQTemplateConfig:
     choice_format: str | None = "letters"
     choice_delimiter: str = "\n"
     fewshot_delimiter: str = "\n\n"
-    metric_list: list[MetricConfig] | None = field(default_factory=lambda: ["acc"])
+    metric_list: list[MetricConfig] | list[str] | None = field(
+        default_factory=lambda: ["acc"]
+    )
 
     def _doc_to_text(self, doc: dict) -> str:
         """Convert a document to text."""

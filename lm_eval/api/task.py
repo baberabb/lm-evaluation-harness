@@ -1198,7 +1198,7 @@ class ConfigurableTask:
         for i, m in enumerate(messages):
             match m.role:
                 case "user" | "assistant":
-                    buff.append(m.content)
+                    buff.append(m.content)  # fmt: skip
                 case "assistant":
                     buff.append(tgt_delim + m.content)
                     if i != len(messages) - 1:

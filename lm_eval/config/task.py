@@ -427,28 +427,27 @@ class TaskConfig:
             )
 
         # Handle template-specific configurations
-        if isinstance(template, MCQTemplateConfig):
-            # For MCQ templates, set up multiple choice specific config
-            config_dict["output_type"] = "multiple_choice"
-
-            # MCQ templates typically use accuracy metrics
-            if template.metric_list is None:
-                config_dict["metric_list"] = [{"metric": "acc"}]
-
-        elif isinstance(template, ClozeTemplateConfig):
-            # For Cloze templates, set up generation config
-            config_dict["output_type"] = "generate_until"
-
-            # Cloze templates typically use accuracy and normalized accuracy
-            if template.metric_list is None:
-                config_dict["metric_list"] = [{"metric": "acc"}, {"metric": "acc_norm"}]
-        else:
-            # Generic template - try to infer output type
-            if hasattr(template, "template"):
-                if template.template == "mcq":
+        match template:
+            case MCQTemplateConfig():
+                # For MCQ templates, set up multiple choice specific config
+                config_dict["output_type"] = "multiple_choice"
+                # MCQ templates typically use accuracy metrics
+                if template.metric_list is None:
+                    config_dict["metric_list"] = [{"metric": "acc"}]
+            case ClozeTemplateConfig():
+                config_dict["output_type"] = "multiple_choice"
+                # Cloze templates typically use accuracy and normalized accuracy
+                if template.metric_list is None:
+                    config_dict["metric_list"] = [
+                        {"metric": "acc"},
+                        {"metric": "acc_norm"},
+                    ]
+            case _:
+                if hasattr(template, "template") and template.template in [
+                    "mcq",
+                    "multiple_choice",
+                ]:
                     config_dict["output_type"] = "multiple_choice"
-                elif template.template == "cloze":
-                    config_dict["output_type"] = "generate_until"
 
         # Override with any user-provided kwargs
         config_dict.update(kwargs)
