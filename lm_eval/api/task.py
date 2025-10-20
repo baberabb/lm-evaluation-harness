@@ -21,8 +21,12 @@ from lm_eval import utils
 from lm_eval.api.instance import Instance
 from lm_eval.caching.cache import load_from_cache, save_to_cache
 from lm_eval.config.metric import MetricConfig
-from lm_eval.config.task import DataSet, TaskConfig
+from lm_eval.config.task import TaskConfig
 from lm_eval.utils import validate_index
+
+
+if TYPE_CHECKING:
+    from lm_eval.config.task import DataSet
 
 
 ALL_OUTPUT_TYPES = [
@@ -171,21 +175,21 @@ def format_turn(content: str, role: str):
 #         """Whether the task has a test set"""
 #         raise NotImplementedError
 #
-#     def training_docs(self) -> DataSet | None:
+#     def training_docs(self) -> "DataSet | None":
 #         """
 #         :return: Iterable[obj]
 #             A iterable of any object, that doc_to_text can handle
 #         """
 #         return []
 #
-#     def validation_docs(self) -> DataSet | None:
+#     def validation_docs(self) -> "DataSet | None":
 #         """
 #         :return: Iterable[obj]
 #             A iterable of any object, that doc_to_text can handle
 #         """
 #         return []
 #
-#     def test_docs(self) -> DataSet | None:
+#     def test_docs(self) -> "DataSet | None":
 #         """
 #         :return: Iterable[obj]
 #             A iterable of any object, that doc_to_text can handle
@@ -739,7 +743,7 @@ class ConfigurableTask:
     def has_test_docs(self) -> bool:
         return self.config.test_split is not None
 
-    def training_docs(self) -> DataSet | None:
+    def training_docs(self) -> "DataSet | None":
         if self.has_training_docs:
             if self.config.process_docs is not None:
                 return self.config.process_docs(
@@ -747,7 +751,7 @@ class ConfigurableTask:
                 )
             return self.dataset[self.config.training_split]
 
-    def validation_docs(self) -> DataSet | None:
+    def validation_docs(self) -> "DataSet | None":
         if self.has_validation_docs:
             if self.config.process_docs is not None:
                 return self.config.process_docs(
@@ -755,7 +759,7 @@ class ConfigurableTask:
                 )
             return self.dataset[self.config.validation_split]
 
-    def test_docs(self) -> DataSet | None:
+    def test_docs(self) -> "DataSet | None":
         if self.has_test_docs:
             if self.config.process_docs is not None:
                 return self.config.process_docs(self.dataset[self.config.test_split])
@@ -855,6 +859,12 @@ class ConfigurableTask:
     def doc_to_text(
         self, doc: dict, doc_to_text: int | str | Callable[..., str] | None = None
     ) -> str | int:
+        # Check if config has a doc_to_text method (template support)
+        if doc_to_text is None and hasattr(self.config, 'doc_to_text') and callable(getattr(self.config, 'doc_to_text', None)):
+            # Delegate to template's doc_to_text method
+            return self.config.doc_to_text(doc)
+
+        # Original processing logic for non-template configs
         # if self.prompt is not None:
         #     doc_to_text = self.prompt
         doc_to_text = doc_to_text or self.config.doc_to_text
@@ -902,6 +912,12 @@ class ConfigurableTask:
     ) -> int | str | list[int]: ...
 
     def doc_to_target(self, doc: dict, doc_to_target=None) -> int | str | list[int]:
+        # Check if config has a doc_to_target method (template support)
+        if doc_to_target is None and hasattr(self.config, 'doc_to_target') and callable(getattr(self.config, 'doc_to_target', None)):
+            # Delegate to template's doc_to_target method
+            return self.config.doc_to_target(doc)
+
+        # Original processing logic for non-template configs
         # if self.prompt is not None:
         #     doc_to_target = self.prompt
         doc_to_target = doc_to_target or self.config.doc_to_target
@@ -964,6 +980,12 @@ class ConfigurableTask:
         doc: dict,
         doc_to_choice: str | list | dict | Callable[..., list[str]] | None = None,
     ) -> list[str]:
+        # Check if config has a doc_to_choice method (template support)
+        if doc_to_choice is None and hasattr(self.config, 'doc_to_choice') and callable(getattr(self.config, 'doc_to_choice', None)):
+            # Delegate to template's doc_to_choice method
+            return self.config.doc_to_choice(doc)
+
+        # Original processing logic for non-template configs
         # if self.prompt is not None:
         #     doc_to_choice = self.prompt
         if doc_to_choice is not None:

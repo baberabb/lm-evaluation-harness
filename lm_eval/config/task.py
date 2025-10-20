@@ -9,7 +9,6 @@ import datasets
 
 from lm_eval.api.filter import FilterEnsemble
 from lm_eval.api.instance import Instance, OutputType
-from lm_eval.api.task import ConfigurableTask
 from lm_eval.config.metric import MetricConfig
 from lm_eval.config.utils import maybe_serialize
 
@@ -17,6 +16,7 @@ from lm_eval.config.utils import maybe_serialize
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from typing import Any
+    from lm_eval.api.task import ConfigurableTask
 
     import datasets
 
@@ -140,8 +140,8 @@ class FewshotConfig:
             return self.sampler
 
     def init_sampler(
-        self, docs: list[dict], task: ConfigurableTask, rnd=None, fewshot_indices=None
-    ) -> ContextSampler:
+        self, docs: list[dict], task: "ConfigurableTask", rnd=None, fewshot_indices=None
+    ) -> "ContextSampler":
         """Initialize the sampler with the given documents and task."""
         if rnd is None:
             raise ValueError(

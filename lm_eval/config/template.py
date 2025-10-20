@@ -89,52 +89,110 @@ class MCQTemplateConfig(TaskConfig, TemplateConfig):
     )
     _extra_fields: dict[str, Any] = field(default_factory=dict, repr=False)
 
+    # Store raw field values to avoid collision with methods
+    _doc_to_text_raw: str | Callable[[dict], str] | None = field(default=None, init=False, repr=False)
+    _doc_to_choice_raw: list[str] | str | None = field(default=None, init=False, repr=False)
+    _doc_to_target_raw: int | str | Callable[[dict], int] | None = field(default=None, init=False, repr=False)
+
+    def __post_init__(self):
+        # Store raw field values
+        self._doc_to_text_raw = self.doc_to_text
+        self._doc_to_choice_raw = self.doc_to_choice
+        self._doc_to_target_raw = self.doc_to_target
+
+        # Delete instance attributes to expose methods
+        # (dataclass sets these as instance attributes which shadow the methods)
+        if hasattr(self, 'doc_to_text'):
+            delattr(self, 'doc_to_text')
+        if hasattr(self, 'doc_to_choice'):
+            delattr(self, 'doc_to_choice')
+        if hasattr(self, 'doc_to_target'):
+            delattr(self, 'doc_to_target')
+
+        # Call parent's __post_init__
+        super().__post_init__()
+
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> TemplateConfig:
-        field_names = {f.name for f in fields(cls) if f.name != "_extra_fields"}
+        field_names = {f.name for f in fields(cls) if f.name != "_extra_fields" and not f.name.startswith("_doc_to_")}
         filtered_config = {k: v for k, v in config.items() if k in field_names}
         extra_fields = {k: v for k, v in config.items() if k not in field_names}
 
         return cls(**filtered_config, _extra_fields=extra_fields)
 
+    def _process_doc_to_text(self, doc: dict) -> str:
+        """Process the raw doc_to_text field to extract text from document."""
+        if self._doc_to_text_raw is None:
+            raise ValueError("doc_to_text not configured")
+
+        if callable(self._doc_to_text_raw):
+            return self._doc_to_text_raw(doc)
+        elif isinstance(self._doc_to_text_raw, str):
+            # Check if it's a field name or a template
+            if self._doc_to_text_raw in doc:
+                return doc[self._doc_to_text_raw]
+            else:
+                return utils.apply_template(self._doc_to_text_raw, doc)
+        else:
+            return str(self._doc_to_text_raw)
+
+    def _process_doc_to_choice(self, doc: dict) -> list[str]:
+        """Process the raw doc_to_choice field to extract choices from document."""
+        if self._doc_to_choice_raw is None:
+            raise ValueError("doc_to_choice not configured")
+
+        if callable(self._doc_to_choice_raw):
+            return self._doc_to_choice_raw(doc)
+        elif isinstance(self._doc_to_choice_raw, str):
+            if self._doc_to_choice_raw in doc:
+                return doc[self._doc_to_choice_raw]
+            else:
+                return ast.literal_eval(utils.apply_template(self._doc_to_choice_raw, doc))
+        elif isinstance(self._doc_to_choice_raw, list):
+            return self._doc_to_choice_raw
+        else:
+            raise TypeError(f"Unexpected type for doc_to_choice: {type(self._doc_to_choice_raw)}")
+
+    def _process_doc_to_target(self, doc: dict) -> int | str:
+        """Process the raw doc_to_target field to extract target from document."""
+        if self._doc_to_target_raw is None:
+            raise ValueError("doc_to_target not configured")
+
+        if callable(self._doc_to_target_raw):
+            return self._doc_to_target_raw(doc)
+        elif isinstance(self._doc_to_target_raw, str):
+            if self._doc_to_target_raw in doc:
+                return doc[self._doc_to_target_raw]
+            else:
+                return utils.apply_template(self._doc_to_target_raw, doc)
+        elif isinstance(self._doc_to_target_raw, int):
+            return self._doc_to_target_raw
+        else:
+            raise TypeError(f"Unexpected type for doc_to_target: {type(self._doc_to_target_raw)}")
+
     def doc_to_text(self, doc: dict) -> str:
-        """Convert a document to text."""
-        doc_to_text: str = (
-            self.doc_to_text
-            if isinstance(self.doc_to_text, str)
-            else self.doc_to_text(doc)
-        )
-        xx = (
+        """Convert a document to formatted MCQ text with choices."""
+        text = self._process_doc_to_text(doc)
+        choices = self._process_doc_to_choice(doc)
+
+        formatted = (
             self.context_prefix
             + self.prefix_delimiter
-            + doc_to_text
+            + text
             + self.context_delimiter
-            + create_mc_choices(
-                self._doc_to_choice(doc), choice_delimiter=self.choice_delimiter
-            )
+            + create_mc_choices(choices, choice_delimiter=self.choice_delimiter)
+            + self.target_delimiter
             + self.answer_suffix
         )
-        return xx
+        return formatted
 
     def doc_to_choice(self, doc: dict) -> list[str]:
-        if callable(self.doc_to_choice):
-            doc_to_choice = self.doc_to_choice(doc)
-        elif isinstance(self.doc_to_choice, str) and self.doc_to_choice in doc:
-            doc_to_choice = doc[self.doc_to_choice]
-        else:
-            doc_to_choice = ast.literal_eval(
-                utils.apply_template(self.doc_to_choice, doc)
-            )
-        return doc_to_choice
+        """Convert a document to choice list."""
+        return self._process_doc_to_choice(doc)
 
-    def doc_to_target(self, doc: dict) -> int:
+    def doc_to_target(self, doc: dict) -> int | str:
         """Convert a document to target."""
-        if callable(self.doc_to_target):
-            return self.doc_to_target(doc)
-        elif isinstance(self.doc_to_target, str):
-            return doc[self.doc_to_target]
-        else:
-            return self.doc_to_target
+        return self._process_doc_to_target(doc)
 
 
 @dataclass
