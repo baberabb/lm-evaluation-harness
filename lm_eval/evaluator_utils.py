@@ -11,7 +11,7 @@ from lm_eval.api.metrics import (
     pooled_sample_stderr,
     stderr_for_metric,
 )
-from lm_eval.api.task import ConfigurableTask, Task
+from lm_eval.api.task import ConfigurableTask
 from lm_eval.utils import positional_deprecated
 
 
@@ -57,7 +57,7 @@ class TaskOutput:
         group_alias=None,
         is_group=None,
     ):
-        self.task: Union[Task, ConfigurableTask] = task
+        self.task: ConfigurableTask = task
         self.task_config = task_config
         self.task_name = task_name
         self.group_name = group_name
@@ -153,7 +153,7 @@ def get_task_list(task_dict: dict) -> List[TaskOutput]:
 
 def get_subtask_list(task_dict, task_root=None, depth=0):
     from lm_eval.api.group import GroupConfig
-    from lm_eval.api.task import Task
+    from lm_eval.api.task import ConfigurableTask
 
     subtask_list = {}
     for group_obj, task_obj in task_dict.items():
@@ -180,7 +180,7 @@ def get_subtask_list(task_dict, task_root=None, depth=0):
             if isinstance(task_obj, GroupConfig):
                 # group_or_task_name = task_obj.group
                 group_or_task_name = task_obj.group
-            elif isinstance(task_obj, Task):
+            elif isinstance(task_obj, ConfigurableTask):
                 # group_or_task_name = task_obj.task_name
                 group_or_task_name = task_obj.task_name
 
@@ -226,7 +226,7 @@ def prepare_print_tasks(
     task_depth=0,
     group_depth=0,
 ) -> Tuple[dict, dict]:
-    from lm_eval.api.task import Task
+    from lm_eval.api.task import ConfigurableTask
 
     """
     @param task_dict: Dictionary representing the group hierarchy of tasks. Each key is a group name and its
@@ -271,7 +271,7 @@ def prepare_print_tasks(
             task_or_group_obj = _sort_task_dict(task_or_group_obj)
         elif isinstance(task_or_group_name, str):
             name = task_or_group_name
-            if isinstance(task_or_group_obj, Task):
+            if isinstance(task_or_group_obj, ConfigurableTask):
                 # string_name = task_or_group_obj.task_name
                 name = task_or_group_obj.task_name
             from_configurable_group = False
@@ -401,7 +401,7 @@ def consolidate_group_results(
     In the top-level invocation of this function, task_aggregation_list is ignored.
     """
     from lm_eval.api.group import GroupConfig
-    from lm_eval.api.task import Task
+    from lm_eval.api.task import ConfigurableTask
 
     if task_root is None:
         task_root = {}
@@ -417,7 +417,7 @@ def consolidate_group_results(
         else:
             group_config = None
 
-        if isinstance(group_or_task_info, Task):
+        if isinstance(group_or_task_info, ConfigurableTask):
             if task_root:
                 task_aggregation_list.setdefault(task_root, []).append(
                     group_or_task_info.task_name

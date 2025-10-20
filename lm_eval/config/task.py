@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Callable, Union
 import datasets
 
 from lm_eval.api.filter import FilterEnsemble
-from lm_eval.api.instance import OutputType
+from lm_eval.api.instance import Instance, OutputType
 from lm_eval.config.metric import MetricConfig
 from lm_eval.config.utils import maybe_serialize
 
@@ -40,6 +40,31 @@ class FilterConfig:
     name: str
     ensemble: FilterEnsemble
     metric_list: list[MetricConfig]
+
+    def _compute_metrics(self, instances: dict[str, list[Instance]]) -> dict[str, Any]:
+        """Compute metrics for a single filter pipeline."""
+        res = {}
+        for metric in self.metric_list:
+            for _, instance in instances.items():
+                res[metric.name] = metric.fn(
+                    (
+                        instance[0].doc,
+                        [instance.filtered_resps[self.name] for instance in instance],
+                    ),
+                )
+                # res[f"{self.name}_{metric.name}"] = metric.fn(
+                #     instance=instances[0],
+                #     filtered_resps={
+                #         instance.name: instance.filtered_resps[self.name]
+                #         for instance in instances
+                #     },
+                #     **metric.kwargs,
+                # )
+            #
+            # [res[metric.name] = metric.fn(
+            #     instance[0].doc, [instance.filtered_resps[self.name] for instance in instance]
+            # ) for instance in instances.values()]
+        return res
 
 
 @dataclass

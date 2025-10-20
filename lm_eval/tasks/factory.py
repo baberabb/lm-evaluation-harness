@@ -6,7 +6,9 @@ from copy import deepcopy
 from typing import Any
 
 from lm_eval.api.group import GroupConfig
-from lm_eval.api.task import ConfigurableTask, Task  # noqa: F401  (typing)
+
+# from lm_eval.api.task import ConfigurableTask, Task  # noqa: F401  (typing)
+from lm_eval.api.task import ConfigurableTask
 from lm_eval.tasks._config_loader import load_yaml as load_cfg
 from lm_eval.tasks.index import Entry, Kind
 
