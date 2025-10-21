@@ -36,6 +36,7 @@ from lm_eval.api.registry import (
     get_metric_aggregation,
     is_higher_better,
 )
+from lm_eval.api.template import TemplateConfig, TemplateFactory
 from lm_eval.caching.cache import load_from_cache, save_to_cache
 from lm_eval.filters import build_filter_ensemble
 from lm_eval.prompts import get_prompt
@@ -99,6 +100,13 @@ class TaskConfig(dict):
     metadata: Optional[dict] = (
         None  # by default, not used in the code. allows for users to pass arbitrary info to tasks
     )
+    # Template configuration
+    # Can be either:
+    # - A string template type ("mcq", "cloze") to use default settings
+    # - A dict with template configuration (including "template_type")
+    # - None to not use templates (backward compatible)
+    template: Optional[Union[str, dict]] = None
+    template_config: Optional[TemplateConfig] = None
 
     def __post_init__(self) -> None:
         if self.generation_kwargs is not None:
@@ -131,6 +139,36 @@ class TaskConfig(dict):
                 }
                 eval_logger.warning(
                     f"{self.task}: No `generation_kwargs` specified in task config, defaulting to {self.generation_kwargs}"
+                )
+
+        # Process template configuration
+        if self.template is not None:
+            # Create template config from the template field
+            if isinstance(self.template, str):
+                # Use factory to create default template of specified type
+                if self.template == "mcq":
+                    self.template_config = TemplateFactory.create_mmlu_style()
+                elif self.template == "cloze":
+                    self.template_config = TemplateFactory.create_cloze_with_options()
+                else:
+                    raise ValueError(f"Unknown template type: {self.template}")
+            elif isinstance(self.template, dict):
+                # Create template from dict config
+                self.template_config = TemplateFactory.from_dict(self.template)
+            else:
+                raise ValueError(f"Invalid template type: {type(self.template)}")
+
+            # Apply template to doc_to_text and doc_to_choice if not already set
+            if self.doc_to_text is None:
+                self.doc_to_text = self.template_config.get_doc_to_text()
+                eval_logger.info(
+                    f"[{self.task}] Applied template to doc_to_text: {self.doc_to_text}"
+                )
+
+            if self.doc_to_choice is None:
+                self.doc_to_choice = self.template_config.get_doc_to_choice()
+                eval_logger.info(
+                    f"[{self.task}] Applied template to doc_to_choice: {self.doc_to_choice}"
                 )
 
     def __getitem__(self, item):
