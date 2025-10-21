@@ -6,6 +6,9 @@ This directory demonstrates the new template system for task configuration in lm
 2. Convert between different prompt formats (MCQ, Cloze, etc.)
 3. Customize formatting without duplicating logic
 4. Maintain consistency across similar tasks
+5. **Use callables for custom document processing**
+6. **Generic choice formatting that adapts to arbitrary choice lists**
+7. **Support for Jinja2 templates and field names as sources**
 
 ## Quick Start
 
@@ -70,6 +73,73 @@ cloze = mcq.to_cloze()
 
 # Or vice versa
 mcq_again = cloze.to_mcq()
+```
+
+## Advanced Features
+
+### Callable Sources
+
+You can use Python callables for custom document processing:
+
+```yaml
+template:
+  template_type: mcq
+  choice_labels: ["A", "B", "C", "D"]
+  question_source: !function my_custom_question_extractor
+  choices_source: !function my_custom_choice_extractor
+```
+
+Or in Python:
+
+```python
+def custom_question(doc):
+    """Custom question extractor."""
+    return f"Q: {doc['question'].strip()}"
+
+template = MCQTemplateConfig(
+    question_source=custom_question,  # Callable
+    choices_source="choices",          # Field name
+)
+```
+
+### Jinja2 Template Sources
+
+Use Jinja2 templates to combine multiple fields:
+
+```yaml
+template:
+  template_type: mcq
+  question_source: "{{subject}}: {{question.strip()}}"
+  choices_source: "choices"
+```
+
+### Generic Choice Formatting
+
+Choice labels automatically adapt to the number of choices:
+
+```python
+template = MCQTemplateConfig(
+    choice_labels=["A", "B", "C", "D", "E", "F"],  # More than needed
+)
+
+# Works with 3 choices
+doc1 = {"question": "Pick a color", "choices": ["Red", "Blue", "Green"]}
+labels1 = template.get_doc_to_choice()(doc1)  # ["A", "B", "C"]
+
+# Works with 5 choices
+doc2 = {"question": "Pick a number", "choices": ["1", "2", "3", "4", "5"]}
+labels2 = template.get_doc_to_choice()(doc2)  # ["A", "B", "C", "D", "E"]
+```
+
+### Custom Field Names
+
+Templates work with any field names:
+
+```yaml
+template:
+  template_type: mcq
+  question_source: "query"    # Use 'query' instead of 'question'
+  choices_source: "options"   # Use 'options' instead of 'choices'
 ```
 
 ## Template Types

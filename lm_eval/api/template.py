@@ -11,12 +11,46 @@ Key Features:
 - Cloze templates for fill-in-the-blank style questions
 - Easy conversion between template types
 - Support for different prompt structures (MMLU, GPQA, etc.)
+- Support for callable doc_to_* fields
+- Generic choice formatting that works with arbitrary choice lists
 """
 
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any, Union, Callable
 from abc import ABC, abstractmethod
-from jinja2 import Template as Jinja2Template
+from jinja2 import Template as Jinja2Template, Environment, BaseLoader
+
+
+def process_field(doc: dict, field_spec: Union[str, Callable, None], default: Any = None) -> Any:
+    """
+    Process a field specification to extract value from a document.
+
+    Args:
+        doc: Document dictionary
+        field_spec: Field specification - can be:
+            - None: return default
+            - str: field name or Jinja2 template
+            - Callable: function that takes doc and returns value
+        default: Default value if field_spec is None
+
+    Returns:
+        Extracted value
+    """
+    if field_spec is None:
+        return default
+    elif callable(field_spec):
+        return field_spec(doc)
+    elif isinstance(field_spec, str):
+        # Check if it's a Jinja2 template (contains {{ }})
+        if "{{" in field_spec and "}}" in field_spec:
+            env = Environment(loader=BaseLoader())
+            template = env.from_string(field_spec)
+            return template.render(doc)
+        else:
+            # It's a field name
+            return doc.get(field_spec, default)
+    else:
+        return field_spec
 
 
 @dataclass
@@ -41,6 +75,12 @@ class TemplateConfig(ABC):
     # Delimiter between individual choices
     choice_delimiter: str = "\n"
 
+    # Source for question text - can be field name, Jinja2 template, or callable
+    question_source: Union[str, Callable, None] = "question"
+
+    # Source for choices - can be field name, Jinja2 template, or callable
+    choices_source: Union[str, Callable, None] = "choices"
+
     @abstractmethod
     def format_prompt(self, question: str, choices: Optional[List[str]] = None, **kwargs) -> str:
         """
@@ -57,22 +97,22 @@ class TemplateConfig(ABC):
         pass
 
     @abstractmethod
-    def get_doc_to_text(self) -> Union[str, Callable]:
+    def get_doc_to_text(self) -> Callable:
         """
-        Get the doc_to_text field for TaskConfig.
+        Get the doc_to_text callable for TaskConfig.
 
         Returns:
-            Either a Jinja2 template string or a callable that processes documents
+            A callable that takes a document dict and returns formatted prompt text
         """
         pass
 
     @abstractmethod
-    def get_doc_to_choice(self) -> Union[List[str], Dict, None]:
+    def get_doc_to_choice(self) -> Callable:
         """
-        Get the doc_to_choice field for TaskConfig.
+        Get the doc_to_choice callable for TaskConfig.
 
         Returns:
-            List of choice labels, dict mapping, or None
+            A callable that takes a document dict and returns choice labels
         """
         pass
 
@@ -98,12 +138,24 @@ class MCQTemplateConfig(TemplateConfig):
     - GPQA style: "(A) choice1 (B) choice2 ..."
     - Numbered: "1. choice1\n2. choice2\n..."
 
+    The template applies labels to choices from the document dynamically.
+
     Example usage:
         template = MCQTemplateConfig(
             choice_labels=["A", "B", "C", "D"],
             choice_format="{label}. {choice}",
+            choices_source="choices",  # or callable
             suffix="Answer:"
         )
+
+        # Generate doc_to_text and doc_to_choice callables
+        doc_to_text = template.get_doc_to_text()
+        doc_to_choice = template.get_doc_to_choice()
+
+        # Use with a document
+        doc = {"question": "What is 2+2?", "choices": ["3", "4", "5", "6"]}
+        prompt = doc_to_text(doc)  # Formats with A/B/C/D labels
+        labels = doc_to_choice(doc)  # Returns ["A", "B", "C", "D"]
     """
 
     # Labels for choices (e.g., ["A", "B", "C", "D"] or ["1", "2", "3", "4"])
@@ -115,11 +167,6 @@ class MCQTemplateConfig(TemplateConfig):
     #   "({label}) {choice}" -> "(A) first choice"
     #   "{label}) {choice}" -> "A) first choice"
     choice_format: str = "{label}. {choice}"
-
-    # Whether to include the choice labels in doc_to_choice
-    # If True: doc_to_choice = ["A", "B", "C", "D"]
-    # If False: doc_to_choice = choices from data (used for continuation tasks)
-    use_choice_labels: bool = True
 
     # Whether to show all choices in the prompt (True) or use continuation (False)
     show_choices_in_prompt: bool = True
@@ -161,64 +208,44 @@ class MCQTemplateConfig(TemplateConfig):
 
         return self.question_choice_delimiter.join(parts)
 
-    def get_doc_to_text(self) -> str:
+    def get_doc_to_text(self) -> Callable:
         """
-        Get the doc_to_text Jinja2 template for MCQ tasks.
+        Get the doc_to_text callable for MCQ tasks.
 
         Returns:
-            Jinja2 template string that formats the prompt
+            Callable that takes doc dict and returns formatted prompt
         """
-        if not self.show_choices_in_prompt:
-            # For continuation-style, only show question
-            parts = []
-            if self.prefix:
-                parts.append(self.prefix)
-            parts.append("{{question.strip()}}")
-            if self.suffix:
-                parts.append(self.suffix)
-            return self.question_choice_delimiter.join(parts)
+        def doc_to_text(doc: dict) -> str:
+            # Extract question
+            question = process_field(doc, self.question_source, "")
 
-        # Build the template string
-        parts = []
+            # Extract choices if needed for prompt
+            if self.show_choices_in_prompt:
+                choices = process_field(doc, self.choices_source, [])
+            else:
+                choices = None
 
-        # Add prefix if present
-        if self.prefix:
-            parts.append(self.prefix)
+            # Format prompt
+            return self.format_prompt(question, choices)
 
-        # Add question
-        parts.append("{{question.strip()}}")
+        return doc_to_text
 
-        # Add formatted choices
-        choice_templates = []
-        for i, label in enumerate(self.choice_labels):
-            choice_template = self.choice_format.format(
-                label=label,
-                choice=f"{{{{choices[{i}]}}}}"
-            )
-            choice_templates.append(choice_template)
-
-        choices_text = self.choice_delimiter.join(choice_templates)
-        parts.append(choices_text)
-
-        # Add suffix
-        if self.suffix:
-            parts.append(self.suffix)
-
-        return self.question_choice_delimiter.join(parts)
-
-    def get_doc_to_choice(self) -> Union[List[str], str]:
+    def get_doc_to_choice(self) -> Callable:
         """
-        Get the doc_to_choice field for MCQ tasks.
+        Get the doc_to_choice callable for MCQ tasks.
 
         Returns:
-            List of choice labels if use_choice_labels is True,
-            otherwise a field name to extract from the document
+            Callable that takes doc dict and returns choice labels
         """
-        if self.use_choice_labels:
-            return self.choice_labels
-        else:
-            # Return the field name to extract choices from document
-            return "choices"
+        def doc_to_choice(doc: dict) -> List[str]:
+            # Extract choices to determine how many labels to return
+            choices = process_field(doc, self.choices_source, [])
+
+            # Return labels matching the number of choices
+            num_choices = len(choices) if isinstance(choices, list) else len(self.choice_labels)
+            return self.choice_labels[:num_choices]
+
+        return doc_to_choice
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -233,9 +260,10 @@ class MCQTemplateConfig(TemplateConfig):
             "suffix": self.suffix,
             "question_choice_delimiter": self.question_choice_delimiter,
             "choice_delimiter": self.choice_delimiter,
+            "question_source": self.question_source if not callable(self.question_source) else "<callable>",
+            "choices_source": self.choices_source if not callable(self.choices_source) else "<callable>",
             "choice_labels": self.choice_labels,
             "choice_format": self.choice_format,
-            "use_choice_labels": self.use_choice_labels,
             "show_choices_in_prompt": self.show_choices_in_prompt,
         }
 
@@ -255,6 +283,8 @@ class MCQTemplateConfig(TemplateConfig):
         return ClozeTemplateConfig(
             prefix=self.prefix,
             suffix="",  # Cloze typically doesn't need suffix
+            question_source=self.question_source,
+            choices_source=self.choices_source,
             blank_marker=blank_marker,
             show_choices=True,  # Show choices as options
             choice_labels=self.choice_labels,
@@ -280,8 +310,12 @@ class ClozeTemplateConfig(TemplateConfig):
         template = ClozeTemplateConfig(
             blank_marker="______",
             show_choices=True,
-            choice_labels=["A", "B", "C", "D"]
+            choice_labels=["A", "B", "C", "D"],
+            choices_source="choices"
         )
+
+        doc_to_text = template.get_doc_to_text()
+        doc_to_choice = template.get_doc_to_choice()
     """
 
     # The marker used to represent the blank
@@ -346,57 +380,48 @@ class ClozeTemplateConfig(TemplateConfig):
 
         return self.question_choice_delimiter.join(parts)
 
-    def get_doc_to_text(self) -> str:
+    def get_doc_to_text(self) -> Callable:
         """
-        Get the doc_to_text Jinja2 template for Cloze tasks.
+        Get the doc_to_text callable for Cloze tasks.
 
         Returns:
-            Jinja2 template string that formats the prompt
+            Callable that takes doc dict and returns formatted prompt
         """
-        parts = []
+        def doc_to_text(doc: dict) -> str:
+            # Extract question
+            question = process_field(doc, self.question_source, "")
 
-        # Add prefix if present
-        if self.prefix:
-            parts.append(self.prefix)
+            # Extract choices if needed
+            if self.show_choices:
+                choices = process_field(doc, self.choices_source, [])
+            else:
+                choices = None
 
-        # Add question with blank
-        if self.blank_position == "end":
-            parts.append("{{question.strip()}} " + self.blank_marker)
-        else:
-            # Assume blank is already in question
-            parts.append("{{question.strip()}}")
+            # Format prompt
+            return self.format_prompt(question, choices)
 
-        # Add choices if should be shown
-        if self.show_choices and self.choice_labels:
-            choice_templates = []
-            for i, label in enumerate(self.choice_labels):
-                choice_template = self.choice_format.format(
-                    label=label,
-                    choice=f"{{{{choices[{i}]}}}}"
-                )
-                choice_templates.append(choice_template)
+        return doc_to_text
 
-            choices_text = self.choices_prefix + self.choice_delimiter.join(choice_templates)
-            parts.append(choices_text)
-
-        # Add suffix
-        if self.suffix:
-            parts.append(self.suffix)
-
-        return self.question_choice_delimiter.join(parts)
-
-    def get_doc_to_choice(self) -> Union[List[str], str, None]:
+    def get_doc_to_choice(self) -> Callable:
         """
-        Get the doc_to_choice field for Cloze tasks.
+        Get the doc_to_choice callable for Cloze tasks.
 
         Returns:
-            List of choice labels if show_choices is True,
-            otherwise None (for pure cloze without choices)
+            Callable that takes doc dict and returns choice labels or None
         """
-        if self.show_choices and self.choice_labels:
-            return self.choice_labels
-        else:
-            return None
+        if not self.show_choices or not self.choice_labels:
+            # Return None for pure cloze without choices
+            return lambda doc: None
+
+        def doc_to_choice(doc: dict) -> List[str]:
+            # Extract choices to determine how many labels to return
+            choices = process_field(doc, self.choices_source, [])
+
+            # Return labels matching the number of choices
+            num_choices = len(choices) if isinstance(choices, list) else len(self.choice_labels)
+            return self.choice_labels[:num_choices]
+
+        return doc_to_choice
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -411,6 +436,8 @@ class ClozeTemplateConfig(TemplateConfig):
             "suffix": self.suffix,
             "question_choice_delimiter": self.question_choice_delimiter,
             "choice_delimiter": self.choice_delimiter,
+            "question_source": self.question_source if not callable(self.question_source) else "<callable>",
+            "choices_source": self.choices_source if not callable(self.choices_source) else "<callable>",
             "blank_marker": self.blank_marker,
             "show_choices": self.show_choices,
             "choice_labels": self.choice_labels,
@@ -435,11 +462,12 @@ class ClozeTemplateConfig(TemplateConfig):
         return MCQTemplateConfig(
             prefix=self.prefix,
             suffix=suffix,
+            question_source=self.question_source,
+            choices_source=self.choices_source,
             question_choice_delimiter=self.question_choice_delimiter,
             choice_delimiter=self.choice_delimiter,
             choice_labels=self.choice_labels or ["A", "B", "C", "D"],
             choice_format=self.choice_format,
-            use_choice_labels=True,
             show_choices_in_prompt=True,
         )
 
@@ -502,6 +530,8 @@ class TemplateFactory:
             suffix="Answer:",
             question_choice_delimiter="\n",
             choice_delimiter="\n",
+            question_source="question",
+            choices_source="choices",
         )
 
     @staticmethod
@@ -523,6 +553,8 @@ class TemplateFactory:
             suffix="Answer:",
             question_choice_delimiter="\n",
             choice_delimiter=" ",
+            question_source="question",
+            choices_source="choices",
         )
 
     @staticmethod
@@ -550,6 +582,8 @@ class TemplateFactory:
             suffix="Answer:",
             question_choice_delimiter="\n",
             choice_delimiter="\n",
+            question_source="question",
+            choices_source="choices",
         )
 
     @staticmethod
@@ -572,6 +606,8 @@ class TemplateFactory:
             blank_position="end",
             choices_prefix="\nOptions: ",
             choice_delimiter=" ",
+            question_source="question",
+            choices_source="choices",
         )
 
     @staticmethod
@@ -590,6 +626,8 @@ class TemplateFactory:
             show_choices=False,
             choice_labels=None,
             blank_position="end",
+            question_source="question",
+            choices_source="choices",
         )
 
     @staticmethod

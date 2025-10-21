@@ -11,6 +11,10 @@ This document describes the new template system implemented for lm-evaluation-ha
 ✅ **Flexible Customization**: Support for different formatting styles (MMLU, GPQA, numbered, etc.)
 ✅ **Type-Safe**: Dataclass-based configuration with clear types
 ✅ **No Runtime Overhead**: Templates processed at config time, not during evaluation
+✅ **Callable Support**: Use Python functions for custom document processing
+✅ **Generic Choice Formatting**: Labels adapt automatically to any number of choices
+✅ **Jinja2 Templates**: Combine multiple document fields with Jinja2 syntax
+✅ **Custom Field Names**: Work with any document structure (query/options/etc.)
 
 ## Architecture
 
