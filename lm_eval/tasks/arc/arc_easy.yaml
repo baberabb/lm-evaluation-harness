@@ -1,5 +1,3 @@
-tag:
-  - ai2_arc
 task: arc_easy
 dataset_path: allenai/ai2_arc
 dataset_name: ARC-Easy
@@ -7,17 +5,18 @@ output_type: multiple_choice
 training_split: train
 validation_split: validation
 test_split: test
-doc_to_text: "Question: {{question}}\nAnswer:"
+doc_to_text: "{{question}}"
 doc_to_target: "{{choices.label.index(answerKey)}}"
 doc_to_choice: "{{choices.text}}"
-should_decontaminate: true
-doc_to_decontamination_query: "Question: {{question}}\nAnswer:"
-metric_list:
-  - metric: acc
-    aggregation: mean
-    higher_is_better: true
-  - metric: acc_norm
-    aggregation: mean
-    higher_is_better: true
+template:
+  ### This should format in mmlu style:
+#  Question: <question>
+#  A. <choice1> ...
+#  B. <choice2> ...
+#  ... (arbitrary number of choice == len(doc_to_choice)
+#  Answer:
+#  A. B. etc
+  template_type: mcq::mmlu
+  # this will use default tempalte format for "mmlu style" as above
 metadata:
   version: 1.0
