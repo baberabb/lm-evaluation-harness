@@ -43,9 +43,49 @@ def process_field(doc: dict, field_spec: Union[str, Callable, None], default: An
     elif isinstance(field_spec, str):
         # Check if it's a Jinja2 template (contains {{ }})
         if "{{" in field_spec and "}}" in field_spec:
-            env = Environment(loader=BaseLoader())
-            template = env.from_string(field_spec)
-            return template.render(doc)
+            # Check if it's a simple single-expression template like "{{choices.text}}"
+            # vs a complex template like "{{subject}}: {{question}}"
+            import re
+            matches = re.findall(r'\{\{(.+?)\}\}', field_spec)
+
+            # If it's ONLY a single Jinja2 expression (no literal text), use direct extraction
+            # This preserves types (e.g., lists remain lists)
+            if len(matches) == 1 and field_spec.strip() == f"{{{{{matches[0]}}}}}":
+                expr = matches[0].strip()
+
+                # Evaluate the expression in the context of doc
+                # This allows us to get the actual value, not a string representation
+                try:
+                    # Use a safe evaluation approach
+                    # Split by '.' to navigate nested dicts
+                    parts = expr.split('.')
+                    value = doc
+                    for part in parts:
+                        # Handle list indexing like choices[0]
+                        if '[' in part:
+                            key = part[:part.index('[')]
+                            index_str = part[part.index('[')+1:part.index(']')]
+                            value = value[key]
+                            try:
+                                index = int(index_str)
+                                value = value[index]
+                            except ValueError:
+                                # It's a string index
+                                value = value[index_str]
+                        else:
+                            value = value[part]
+                    return value
+                except (KeyError, IndexError, TypeError):
+                    # Fall back to Jinja2 rendering if manual parsing fails
+                    env = Environment(loader=BaseLoader())
+                    template = env.from_string(field_spec)
+                    return template.render(doc)
+            else:
+                # Complex template with multiple expressions or literal text
+                # Use Jinja2 rendering (returns string)
+                env = Environment(loader=BaseLoader())
+                template = env.from_string(field_spec)
+                return template.render(doc)
         else:
             # It's a field name
             return doc.get(field_spec, default)
@@ -75,12 +115,6 @@ class TemplateConfig(ABC):
     # Delimiter between individual choices
     choice_delimiter: str = "\n"
 
-    # Source for question text - can be field name, Jinja2 template, or callable
-    question_source: Union[str, Callable, None] = "question"
-
-    # Source for choices - can be field name, Jinja2 template, or callable
-    choices_source: Union[str, Callable, None] = "choices"
-
     @abstractmethod
     def format_prompt(self, question: str, choices: Optional[List[str]] = None, **kwargs) -> str:
         """
@@ -97,26 +131,6 @@ class TemplateConfig(ABC):
         pass
 
     @abstractmethod
-    def get_doc_to_text(self) -> Callable:
-        """
-        Get the doc_to_text callable for TaskConfig.
-
-        Returns:
-            A callable that takes a document dict and returns formatted prompt text
-        """
-        pass
-
-    @abstractmethod
-    def get_doc_to_choice(self) -> Callable:
-        """
-        Get the doc_to_choice callable for TaskConfig.
-
-        Returns:
-            A callable that takes a document dict and returns choice labels
-        """
-        pass
-
-    @abstractmethod
     def to_dict(self) -> Dict[str, Any]:
         """
         Convert template config to dictionary for YAML export.
@@ -125,6 +139,106 @@ class TemplateConfig(ABC):
             Dictionary representation of the template
         """
         pass
+
+    def _should_show_choices(self) -> bool:
+        """
+        Check if this template shows choices in the prompt.
+
+        Different template types use different attribute names.
+        """
+        # MCQTemplateConfig uses 'show_choices_in_prompt'
+        if hasattr(self, 'show_choices_in_prompt'):
+            return self.show_choices_in_prompt
+        # ClozeTemplateConfig uses 'show_choices'
+        elif hasattr(self, 'show_choices'):
+            return self.show_choices
+        # Default to True
+        return True
+
+    def wrap_doc_to_text(
+        self,
+        original_doc_to_text: Union[str, Callable, None],
+        original_doc_to_choice: Union[str, Callable, List, None] = None
+    ) -> Callable:
+        """
+        Wrap existing doc_to_text to add template formatting.
+
+        This is the key method for the wrapper API. It takes the user's
+        doc_to_text and doc_to_choice specifications and wraps them to
+        add template formatting.
+
+        Args:
+            original_doc_to_text: User's doc_to_text (Jinja2, callable, or field name)
+            original_doc_to_choice: User's doc_to_choice (Jinja2, callable, list, or field name)
+
+        Returns:
+            New callable that extracts values using originals and formats with template
+
+        Example:
+            # User specifies:
+            doc_to_text = "{{question}}"
+            doc_to_choice = "{{choices.text}}"
+            template = mcq::mmlu
+
+            # Template wraps them:
+            wrapped = template.wrap_doc_to_text(doc_to_text, doc_to_choice)
+
+            # Result formats as MMLU style with A/B/C/D labels
+        """
+        def wrapped_doc_to_text(doc: dict) -> str:
+            # Extract question using original doc_to_text
+            question = process_field(doc, original_doc_to_text, "")
+
+            # Extract choices using original doc_to_choice (if needed for prompt)
+            if self._should_show_choices() and original_doc_to_choice is not None:
+                choices = process_field(doc, original_doc_to_choice, [])
+            else:
+                choices = None
+
+            # Format according to template
+            return self.format_prompt(question, choices)
+
+        return wrapped_doc_to_text
+
+    def wrap_doc_to_choice(
+        self,
+        original_doc_to_choice: Union[str, Callable, List, None]
+    ) -> Callable:
+        """
+        Wrap existing doc_to_choice to return template choice labels.
+
+        For MCQ templates, this returns the choice labels (A, B, C, D)
+        based on the number of choices extracted by the original doc_to_choice.
+
+        Args:
+            original_doc_to_choice: User's doc_to_choice specification
+
+        Returns:
+            New callable that returns appropriate choice labels
+
+        Example:
+            # User specifies:
+            doc_to_choice = "{{choices.text}}"  # Returns ["Paris", "London", "Berlin"]
+
+            # Template wraps it:
+            wrapped = template.wrap_doc_to_choice(doc_to_choice)
+
+            # Result returns:
+            wrapped(doc) # ["A", "B", "C"] (matching number of choices)
+        """
+        def wrapped_doc_to_choice(doc: dict) -> List[str]:
+            # Extract original choices to determine count
+            choices = process_field(doc, original_doc_to_choice, [])
+
+            # Return appropriate number of labels
+            if isinstance(choices, list):
+                num_choices = len(choices)
+            else:
+                num_choices = len(self.choice_labels)
+
+            return self.choice_labels[:num_choices]
+
+        return wrapped_doc_to_choice
 
 
 @dataclass
@@ -208,45 +322,6 @@ class MCQTemplateConfig(TemplateConfig):
 
         return self.question_choice_delimiter.join(parts)
 
-    def get_doc_to_text(self) -> Callable:
-        """
-        Get the doc_to_text callable for MCQ tasks.
-
-        Returns:
-            Callable that takes doc dict and returns formatted prompt
-        """
-        def doc_to_text(doc: dict) -> str:
-            # Extract question
-            question = process_field(doc, self.question_source, "")
-
-            # Extract choices if needed for prompt
-            if self.show_choices_in_prompt:
-                choices = process_field(doc, self.choices_source, [])
-            else:
-                choices = None
-
-            # Format prompt
-            return self.format_prompt(question, choices)
-
-        return doc_to_text
-
-    def get_doc_to_choice(self) -> Callable:
-        """
-        Get the doc_to_choice callable for MCQ tasks.
-
-        Returns:
-            Callable that takes doc dict and returns choice labels
-        """
-        def doc_to_choice(doc: dict) -> List[str]:
-            # Extract choices to determine how many labels to return
-            choices = process_field(doc, self.choices_source, [])
-
-            # Return labels matching the number of choices
-            num_choices = len(choices) if isinstance(choices, list) else len(self.choice_labels)
-            return self.choice_labels[:num_choices]
-
-        return doc_to_choice
-
     def to_dict(self) -> Dict[str, Any]:
         """
         Convert MCQ template to dictionary.
@@ -260,8 +335,6 @@ class MCQTemplateConfig(TemplateConfig):
             "suffix": self.suffix,
             "question_choice_delimiter": self.question_choice_delimiter,
             "choice_delimiter": self.choice_delimiter,
-            "question_source": self.question_source if not callable(self.question_source) else "<callable>",
-            "choices_source": self.choices_source if not callable(self.choices_source) else "<callable>",
             "choice_labels": self.choice_labels,
             "choice_format": self.choice_format,
             "show_choices_in_prompt": self.show_choices_in_prompt,
@@ -283,8 +356,6 @@ class MCQTemplateConfig(TemplateConfig):
         return ClozeTemplateConfig(
             prefix=self.prefix,
             suffix="",  # Cloze typically doesn't need suffix
-            question_source=self.question_source,
-            choices_source=self.choices_source,
             blank_marker=blank_marker,
             show_choices=True,  # Show choices as options
             choice_labels=self.choice_labels,
@@ -380,49 +451,6 @@ class ClozeTemplateConfig(TemplateConfig):
 
         return self.question_choice_delimiter.join(parts)
 
-    def get_doc_to_text(self) -> Callable:
-        """
-        Get the doc_to_text callable for Cloze tasks.
-
-        Returns:
-            Callable that takes doc dict and returns formatted prompt
-        """
-        def doc_to_text(doc: dict) -> str:
-            # Extract question
-            question = process_field(doc, self.question_source, "")
-
-            # Extract choices if needed
-            if self.show_choices:
-                choices = process_field(doc, self.choices_source, [])
-            else:
-                choices = None
-
-            # Format prompt
-            return self.format_prompt(question, choices)
-
-        return doc_to_text
-
-    def get_doc_to_choice(self) -> Callable:
-        """
-        Get the doc_to_choice callable for Cloze tasks.
-
-        Returns:
-            Callable that takes doc dict and returns choice labels or None
-        """
-        if not self.show_choices or not self.choice_labels:
-            # Return None for pure cloze without choices
-            return lambda doc: None
-
-        def doc_to_choice(doc: dict) -> List[str]:
-            # Extract choices to determine how many labels to return
-            choices = process_field(doc, self.choices_source, [])
-
-            # Return labels matching the number of choices
-            num_choices = len(choices) if isinstance(choices, list) else len(self.choice_labels)
-            return self.choice_labels[:num_choices]
-
-        return doc_to_choice
-
     def to_dict(self) -> Dict[str, Any]:
         """
         Convert Cloze template to dictionary.
@@ -436,8 +464,6 @@ class ClozeTemplateConfig(TemplateConfig):
             "suffix": self.suffix,
             "question_choice_delimiter": self.question_choice_delimiter,
             "choice_delimiter": self.choice_delimiter,
-            "question_source": self.question_source if not callable(self.question_source) else "<callable>",
-            "choices_source": self.choices_source if not callable(self.choices_source) else "<callable>",
             "blank_marker": self.blank_marker,
             "show_choices": self.show_choices,
             "choice_labels": self.choice_labels,
@@ -462,8 +488,6 @@ class ClozeTemplateConfig(TemplateConfig):
         return MCQTemplateConfig(
             prefix=self.prefix,
             suffix=suffix,
-            question_source=self.question_source,
-            choices_source=self.choices_source,
             question_choice_delimiter=self.question_choice_delimiter,
             choice_delimiter=self.choice_delimiter,
             choice_labels=self.choice_labels or ["A", "B", "C", "D"],
@@ -487,6 +511,13 @@ class TemplateFactory:
         """
         Create a template from a dictionary configuration.
 
+        Supports template_type with :: syntax for predefined styles:
+        - "mcq::mmlu" → MMLU-style MCQ
+        - "mcq::gpqa" → GPQA-style MCQ
+        - "mcq::numbered" → Numbered MCQ
+        - "cloze" → Cloze with options
+        - "mcq" → Default MMLU-style MCQ
+
         Args:
             config: Dictionary with template configuration
 
@@ -497,6 +528,30 @@ class TemplateFactory:
             ValueError: If template_type is unknown
         """
         template_type = config.get("template_type", "mcq")
+
+        # Support template_type: mcq::mmlu syntax
+        if "::" in template_type:
+            type_part, style_part = template_type.split("::", 1)
+
+            if type_part == "mcq":
+                if style_part == "mmlu":
+                    return TemplateFactory.create_mmlu_style()
+                elif style_part == "gpqa":
+                    return TemplateFactory.create_gpqa_style()
+                elif style_part == "numbered":
+                    num_choices = config.get("num_choices", 4)
+                    return TemplateFactory.create_numbered_style(num_choices)
+                else:
+                    raise ValueError(f"Unknown MCQ style: {style_part}")
+            elif type_part == "cloze":
+                if style_part == "with_options":
+                    return TemplateFactory.create_cloze_with_options()
+                elif style_part == "pure":
+                    return TemplateFactory.create_pure_cloze()
+                else:
+                    raise ValueError(f"Unknown cloze style: {style_part}")
+            else:
+                raise ValueError(f"Unknown template type: {type_part}")
 
         # Remove template_type from config before passing to constructor
         config = {k: v for k, v in config.items() if k != "template_type"}
@@ -530,8 +585,6 @@ class TemplateFactory:
             suffix="Answer:",
             question_choice_delimiter="\n",
             choice_delimiter="\n",
-            question_source="question",
-            choices_source="choices",
         )
 
     @staticmethod
@@ -553,8 +606,6 @@ class TemplateFactory:
             suffix="Answer:",
             question_choice_delimiter="\n",
             choice_delimiter=" ",
-            question_source="question",
-            choices_source="choices",
         )
 
     @staticmethod
@@ -582,8 +633,6 @@ class TemplateFactory:
             suffix="Answer:",
             question_choice_delimiter="\n",
             choice_delimiter="\n",
-            question_source="question",
-            choices_source="choices",
         )
 
     @staticmethod
@@ -606,8 +655,6 @@ class TemplateFactory:
             blank_position="end",
             choices_prefix="\nOptions: ",
             choice_delimiter=" ",
-            question_source="question",
-            choices_source="choices",
         )
 
     @staticmethod
@@ -626,8 +673,6 @@ class TemplateFactory:
             show_choices=False,
             choice_labels=None,
             blank_position="end",
-            question_source="question",
-            choices_source="choices",
         )
 
     @staticmethod

@@ -158,17 +158,28 @@ class TaskConfig(dict):
             else:
                 raise ValueError(f"Invalid template type: {type(self.template)}")
 
-            # Apply template to doc_to_text and doc_to_choice if not already set
-            if self.doc_to_text is None:
-                self.doc_to_text = self.template_config.get_doc_to_text()
+            # Wrap existing doc_to_text and doc_to_choice with template formatting
+            # Store originals for reference
+            original_doc_to_text = self.doc_to_text
+            original_doc_to_choice = self.doc_to_choice
+
+            # Wrap doc_to_text to add template formatting
+            if original_doc_to_text is not None:
+                self.doc_to_text = self.template_config.wrap_doc_to_text(
+                    original_doc_to_text,
+                    original_doc_to_choice
+                )
                 eval_logger.info(
-                    f"[{self.task}] Applied template to doc_to_text: {self.doc_to_text}"
+                    f"[{self.task}] Wrapped doc_to_text with template formatting"
                 )
 
-            if self.doc_to_choice is None:
-                self.doc_to_choice = self.template_config.get_doc_to_choice()
+            # Wrap doc_to_choice to return choice labels (A, B, C, D, etc.)
+            if original_doc_to_choice is not None:
+                self.doc_to_choice = self.template_config.wrap_doc_to_choice(
+                    original_doc_to_choice
+                )
                 eval_logger.info(
-                    f"[{self.task}] Applied template to doc_to_choice: {self.doc_to_choice}"
+                    f"[{self.task}] Wrapped doc_to_choice to return template labels"
                 )
 
     def __getitem__(self, item):
