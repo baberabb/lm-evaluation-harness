@@ -10,7 +10,7 @@ from lm_eval.api.group import GroupConfig
 # from lm_eval.api.task import ConfigurableTask, Task  # noqa: F401  (typing)
 from lm_eval.api.task import ConfigurableTask
 from lm_eval.config.task import TaskConfig
-from lm_eval.config.template import MCQTemplateConfig
+from lm_eval.config.template import MMLUTemplate
 from lm_eval.tasks._config_loader import load_yaml as load_cfg
 from lm_eval.tasks.index import Entry, Kind
 

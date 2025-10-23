@@ -6,7 +6,6 @@ from functools import wraps
 from inspect import getsource
 from typing import Any, Callable, TypeVar
 
-from frozendict import frozendict
 
 from lm_eval import utils
 
@@ -66,8 +65,6 @@ def doc_to_closure(fn: Callable[..., T]) -> Callable[..., T]:
 
     return closure
 
-
-from frozendict import frozendict
 
 
 def freezeargs(func):
