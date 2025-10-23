@@ -36,7 +36,13 @@ from lm_eval.api.registry import (
     get_metric_aggregation,
     is_higher_better,
 )
-from lm_eval.caching.cache import load_from_cache, save_to_cache
+from lm_eval.caching.cache import (
+    CacheKey,
+    RequestCacheManager,
+    get_cache_manager,
+    load_from_cache,
+    save_to_cache,
+)
 from lm_eval.filters import build_filter_ensemble
 from lm_eval.prompts import get_prompt
 
@@ -395,29 +401,29 @@ class Task(abc.ABC):
         fewshot_as_multiturn: bool,
         system_instruction: Optional[str],
         tokenizer_name: str,
-    ) -> str:
+    ) -> CacheKey:
         """Build a cache key from the request parameters."""
-        key_parts = [
-            f"requests-{self._config.task}",
-            f"{self.config.num_fewshot}shot",
-            f"rank{rank}",
-            f"world_size{world_size}",
-        ]
+        num_fewshot = 0 if self.config.num_fewshot is None else self.config.num_fewshot
 
-        if apply_chat_template:
-            key_parts.append("chat_template")
-        if fewshot_as_multiturn:
-            key_parts.append("fewshot_as_multiturn")
-        if system_instruction is not None:
-            key_parts.append(f"system_prompt_hash{utils.hash_string(system_instruction)}")
-        if tokenizer_name:
-            key_parts.append(f"tokenizer{tokenizer_name}")
-
-        return "-".join(key_parts)
+        return CacheKey(
+            task_name=self._config.task,
+            num_fewshot=num_fewshot,
+            rank=rank,
+            world_size=world_size,
+            apply_chat_template=apply_chat_template,
+            fewshot_as_multiturn=fewshot_as_multiturn,
+            system_instruction_hash=(
+                CacheKey.hash_string(system_instruction)
+                if system_instruction is not None
+                else None
+            ),
+            tokenizer_name=tokenizer_name,
+        )
 
     def _try_load_from_cache(
         self,
-        cache_key: str,
+        cache_manager: RequestCacheManager,
+        cache_key: CacheKey,
         cache_requests: bool,
         rewrite_requests_cache: bool,
         limit: Union[int, None],
@@ -428,37 +434,36 @@ class Task(abc.ABC):
         Returns:
             Flattened instances if cache hit, None otherwise
         """
-        if not cache_requests:
+        if not cache_requests or rewrite_requests_cache:
             return None
 
-        cached_instances = load_from_cache(file_name=cache_key, cache=cache_requests)
+        cached_instances = cache_manager.load(cache_key)
 
-        if cached_instances and not rewrite_requests_cache:
+        if cached_instances is not None:
             sliced_cache = cached_instances[:limit]
             return self._flatten_instances(sliced_cache)
 
         return None
 
-    def _determine_doc_limit(
+    def _should_build_full_cache(
         self,
+        cache_manager: RequestCacheManager,
+        cache_key: CacheKey,
         cache_requests: bool,
-        cached_instances: Optional[List],
         rewrite_requests_cache: bool,
         limit: Union[int, None],
-    ) -> Union[int, None]:
+    ) -> bool:
         """
-        Determine the document limit to use when building instances.
+        Determine if we should build a full cache.
 
         When caching is enabled and we're building (not using cache),
         we process all documents to create a complete cache.
         """
-        should_build_full_cache = (
+        return (
             cache_requests
-            and (not cached_instances or rewrite_requests_cache)
+            and (not cache_manager.exists(cache_key) or rewrite_requests_cache)
             and limit is not None
         )
-
-        return None if should_build_full_cache else limit
 
     def _build_instances_from_docs(
         self,
@@ -526,17 +531,19 @@ class Task(abc.ABC):
 
     def _save_to_cache_if_needed(
         self,
-        cache_key: str,
+        cache_manager: RequestCacheManager,
+        cache_key: CacheKey,
         instances: List[List[Instance]],
         cache_requests: bool,
-        cached_instances: Optional[List],
         rewrite_requests_cache: bool,
     ) -> None:
         """Save instances to cache if caching is enabled and cache needs updating."""
-        should_save = cache_requests and (not cached_instances or rewrite_requests_cache)
+        should_save = cache_requests and (
+            not cache_manager.exists(cache_key) or rewrite_requests_cache
+        )
 
         if should_save:
-            save_to_cache(file_name=cache_key, obj=instances)
+            cache_manager.save(cache_key, instances)
 
     def build_all_requests(
         self,
@@ -555,6 +562,9 @@ class Task(abc.ABC):
     ) -> None:
         """Build a set of Instances for a task, and store them in task.instances"""
 
+        # Get cache manager
+        cache_manager = get_cache_manager()
+
         # Build cache key for this request configuration
         cache_key = self._build_cache_key(
             rank=rank,
@@ -567,6 +577,7 @@ class Task(abc.ABC):
 
         # Try to load from cache first
         cached_result = self._try_load_from_cache(
+            cache_manager=cache_manager,
             cache_key=cache_key,
             cache_requests=cache_requests,
             rewrite_requests_cache=rewrite_requests_cache,
@@ -581,12 +592,14 @@ class Task(abc.ABC):
         eval_logger.info(f"Building contexts for {self.config.task} on rank {rank}...")
 
         # Determine document limit (may be None for full cache build)
-        doc_limit = self._determine_doc_limit(
+        should_build_full = self._should_build_full_cache(
+            cache_manager=cache_manager,
+            cache_key=cache_key,
             cache_requests=cache_requests,
-            cached_instances=load_from_cache(file_name=cache_key, cache=cache_requests),
             rewrite_requests_cache=rewrite_requests_cache,
             limit=limit,
         )
+        doc_limit = None if should_build_full else limit
 
         # Get documents to process
         doc_id_docs = list(
@@ -616,10 +629,10 @@ class Task(abc.ABC):
 
         # Save to cache if needed
         self._save_to_cache_if_needed(
+            cache_manager=cache_manager,
             cache_key=cache_key,
             instances=instance_groups,
             cache_requests=cache_requests,
-            cached_instances=load_from_cache(file_name=cache_key, cache=cache_requests),
             rewrite_requests_cache=rewrite_requests_cache,
         )
 
