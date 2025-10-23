@@ -1,196 +1,169 @@
-from __future__ import annotations
+from dataclasses import dataclass
+from typing import Any, Protocol, runtime_checkable
 
-import ast
-from dataclasses import dataclass, field, fields
-from typing import TYPE_CHECKING, Any, Callable
-
-from lm_eval import utils
-from lm_eval.config.task import TaskConfig
 from lm_eval.config.utils import create_mc_choices
 
 
-if TYPE_CHECKING:
-    from lm_eval.config.metric import MetricConfig
-
-
-@dataclass(kw_only=True)
-class TemplateConfig:
-    """Encapsulates information about a template."""
-
-    template: str
-    task: str
-    doc_to_text: str | Callable[[dict], str] | list[str]
-    doc_to_choice: str | list | Callable[[dict], list]
-    doc_to_target: int | Callable[[dict], int]
-    description: str
-    context_prefix: str
-    prefix_delimiter: str
-    context_delimiter: str
-    answer_suffix: str
+@runtime_checkable
+class Template(Protocol):
+    format: str
+    question: str | None
+    choices: list[str] | None
+    target: str | int | None
+    # Prefix before the question, e.g. "Question: "
+    prefix: str
+    # Delimiter between question and choices, e.g. "\n"
+    question_choice_delimiter: str
+    # Suffix after the question, e.g. "\nAnswer:"
+    suffix: str
+    # Delimiter between choices, e.g. "\n"
+    choice_delimiter: str
+    # Delimiter between Answer and current choice (for fewshots)
     target_delimiter: str
+    # Format of the choices, e.g. "letters" or "numbers"
     choice_format: str | None
-    choice_delimiter: str | None
-    fewshot_delimiter: str
-    description: str
-    metric_list: list[str] | list[MetricConfig] | None
-    # _extra_fields: dict[str, Any] = field(default_factory=dict, repr=False)
 
-    @classmethod
-    def from_config(cls, config: dict[str, Any]) -> TemplateConfig:
-        # field_names = {f.name for f in fields(cls) if f.name != "_extra_fields"}
-        # filtered_config = {k: v for k, v in config.items() if k in field_names}
-        # extra_fields = {k: v for k, v in config.items() if k not in field_names}
-
-        return cls(**config)
-
-    def _doc_to_text(self, doc: dict) -> str:
-        """Convert a document to text."""
-        raise NotImplementedError
-
-    def _doc_to_choice(self, doc: dict) -> list[str]:
-        """Convert a document to choices."""
-        raise NotImplementedError
-
-    def _doc_to_target(self, doc: dict) -> int | str:
-        """Convert a document to target."""
-        raise NotImplementedError
-
-
-@dataclass(kw_only=True)
-class MCQTemplateConfig(TaskConfig, TemplateConfig):
-    """Encapsulates information about a template.
-    Would return a sample with the following format:
-    Question: <doc_to_text(doc)>
-    A. <doc_to_choice(doc)[0]>
-    B. <doc_to_choice(doc)[1]>
-    C. <doc_to_choice(doc)[2]>
-    D. <doc_to_choice(doc)[3]>
-    Answer: 'doc_to_choice(doc)` for each choice.
-    """
-
-    task: str
-    doc_to_text: str | Callable[[dict], str] | None = None
-    doc_to_choice: list[str] | None = None
-    doc_to_target: int | Callable[[dict], int] | None = None
-    template = "mcq"
-    context_prefix: str = "Question:"
-    prefix_delimiter: str = " "
-    context_delimiter: str = "\n"
-    answer_suffix: str = "Answer:"
-    target_delimiter: str = "\n"
-    choice_format: str | None = "letters"
-    choice_delimiter: str = "\n"
-    fewshot_delimiter: str = "\n\n"
-    description: str = ""
-    metric_list: list[MetricConfig] | list[dict] | None = field(
-        default_factory=lambda: [
-            {"metric": "acc", "aggregation": "mean", "higher_better": True},
-        ]
-    )
-    _extra_fields: dict[str, Any] = field(default_factory=dict, repr=False)
-
-    @classmethod
-    def from_config(cls, config: dict[str, Any]) -> TemplateConfig:
-        field_names = {f.name for f in fields(cls) if f.name != "_extra_fields"}
-        filtered_config = {k: v for k, v in config.items() if k in field_names}
-        extra_fields = {k: v for k, v in config.items() if k not in field_names}
-
-        return cls(**filtered_config, _extra_fields=extra_fields)
-
-    def doc_to_text(self, doc: dict) -> str:
-        """Convert a document to text."""
-        doc_to_text: str = (
-            self.doc_to_text
-            if isinstance(self.doc_to_text, str)
-            else self.doc_to_text(doc)
-        )
-        xx = (
-            self.context_prefix
-            + self.prefix_delimiter
-            + doc_to_text
-            + self.context_delimiter
-            + create_mc_choices(
-                self._doc_to_choice(doc), choice_delimiter=self.choice_delimiter
-            )
-            + self.answer_suffix
-        )
-        return xx
-
-    def doc_to_choice(self, doc: dict) -> list[str]:
-        if callable(self.doc_to_choice):
-            doc_to_choice = self.doc_to_choice(doc)
-        elif isinstance(self.doc_to_choice, str) and self.doc_to_choice in doc:
-            doc_to_choice = doc[self.doc_to_choice]
-        else:
-            doc_to_choice = ast.literal_eval(
-                utils.apply_template(self.doc_to_choice, doc)
-            )
-        return doc_to_choice
-
-    def doc_to_target(self, doc: dict) -> int:
-        """Convert a document to target."""
-        if callable(self.doc_to_target):
-            return self.doc_to_target(doc)
-        elif isinstance(self.doc_to_target, str):
-            return doc[self.doc_to_target]
-        else:
-            return self.doc_to_target
+    def format_prompt(
+        self,
+        q: Any,
+        c: Any,
+        a: Any,
+        **kwargs,
+    ) -> Any: ...
+    def format_choices(
+        self,
+        q: Any,
+        c: Any,
+        a: Any,
+        **kwargs,
+    ) -> Any | None: ...
+    def format_target(
+        self,
+        q: Any,
+        c: Any,
+        a: Any,
+        **kwargs,
+    ) -> Any: ...
 
 
 @dataclass
-class ClozeTemplateConfig:
-    """Encapsulates information about a template.
-    Would return a sample with the following format:
-    Question:  <doc_to_text(doc)>
-    Answer:` <doc_to_target(doc)>`
-    """
+class MMLUTemplate:
+    format: str = "mmlu"
+    question: str | None = None
+    choices: list[str] | None = None
+    target: str | None = None
+    prefix: str = "Question: "
+    question_choice_delimiter: str = "\n"
+    suffix: str = "\nAnswer:"
+    choice_delimiter: str = "\n"
+    target_delimiter: str = "\n\n"
+    choice_format: str | None = "letters"
 
-    doc_to_text: str | Callable[[dict], str]
-    doc_to_choice: list[str]
-    doc_to_target: int | Callable[[dict], int]
-    template: str = "cloze"
-    description: str = ""
-    context_prefix: str = "Question:"
-    prefix_delimiter: str = " "
-    context_delimiter: str = "\n"
-    answer_suffix: str = "Answer:"
-    target_delimiter: str = " "
-    choice_format: str | None = None
-    choice_delimiter: str = ""
-    fewshot_delimiter: str = "\n\n"
-    metric_list: list[str] | list[MetricConfig] | None = field(
-        default_factory=lambda: ["acc", "acc_norm"]
-    )
-
-    def _doc_to_text(self, doc: dict) -> str:
-        """Convert a document to text."""
-        doc_to_text: str = (
-            self.doc_to_text
-            if isinstance(self.doc_to_text, str)
-            else self.doc_to_text(doc)
-        )
+    def format_prompt(
+        self,
+        q: str,
+        c: list[str],
+        a: int,
+        **kwargs,
+    ) -> str:
         return (
-            self.context_prefix
-            + self.prefix_delimiter
-            + doc_to_text
-            + self.context_delimiter
-            + self.answer_suffix
+            self.prefix
+            + q
+            + self.question_choice_delimiter
+            + create_mc_choices(c, self.choice_delimiter)
+            + self.suffix
         )
 
-    def _doc_to_choice(self, doc: dict) -> list[str]:
-        if callable(self.doc_to_choice):
-            doc_to_choice = self.doc_to_choice(doc)
-        elif isinstance(self.doc_to_choice, str):
-            doc_to_choice = doc[self.doc_to_choice]
-        else:
-            doc_to_choice = self.doc_to_choice
-        return doc_to_choice
+    def format_choices(
+        self,
+        q: Any,
+        c: list[str],
+        a: Any,
+        **kwargs,
+    ):
+        return c
 
-    def _doc_to_target(self, doc: dict) -> int:
-        """Convert a document to target."""
-        if callable(self.doc_to_target):
-            return self.doc_to_target(doc)
-        elif isinstance(self.doc_to_target, str):
-            return doc[self.doc_to_target]
-        else:
-            return self.doc_to_target
+    def format_target(
+        self,
+        q: Any,
+        c: Any,
+        a: int,
+        **kwargs,
+    ):
+        return a
+
+
+@dataclass
+class ClozeTemplate:
+    format: str = "cloze"
+    question: str | None = None
+    choices: list[str] | None = None
+    target: str | None = None
+    prefix: str = "Question: "
+    question_choice_delimiter: str = "\n"
+    suffix: str = "\nAnswer:"
+    choice_delimiter: str = ""
+    target_delimiter: str = "\n\n"
+    choice_format: str | None = ""
+
+    def format_prompt(self, q: str, c: list[str], a: int, **kwargs) -> str:
+        return self.prefix + q + self.suffix
+
+    def format_choices(self, q: str, c: list[str], a: int, **kwargs):
+        return c
+
+    def format_target(self, q: str, c: list[str], a: int, **kwargs) -> int:
+        return a
+
+
+@dataclass
+class GenerateTemplate:
+    format: str = "generate_until"
+    question: str | None = None
+    choices: list[str] | None = None
+    target: str | None = None
+    prefix: str = "Question: "
+    question_choice_delimiter: str = "\n"
+    suffix: str = "\nAnswer:"
+    choice_delimiter: str = "\n"
+    target_delimiter: str = "\n\n"
+    choice_format: str | None = "letters"
+
+    def format_prompt(
+        self,
+        q: str,
+        c: list[str],
+        a: int,
+        **kwargs,
+    ) -> str:
+        return (
+            self.prefix
+            + q
+            + self.question_choice_delimiter
+            + create_mc_choices(c, self.choice_delimiter)
+            + self.suffix
+        )
+
+    def format_choices(self, q: str, c: list[str], a: int, **kwargs):
+        return []
+
+    def format_target(self, q: str, c: list[str], a: int, **kwargs):
+        return c[a]
+
+
+def init_template(cfg: str | dict | Template | None):
+    """Initialize a template from a string or dict."""
+    # fmt: off
+    match cfg:
+        case Template() | None: return cfg
+        case str():
+            cfg = {"format": cfg}
+
+    _format = cfg.get("format", "").lower()
+
+    match _format:
+        case "mmlu": return MMLUTemplate(**cfg)
+        case "cloze": return ClozeTemplate(**cfg)
+        case "generate_until": return GenerateTemplate(**cfg)
+        case _: raise ValueError(f"Unknown template format: {_format}")
+    # fmt: on

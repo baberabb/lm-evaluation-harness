@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ast
 import logging
-from collections.abc import Callable, Iterable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
 from functools import cached_property, partial
@@ -21,7 +21,8 @@ from lm_eval import utils
 from lm_eval.api.instance import Instance
 from lm_eval.caching.cache import load_from_cache, save_to_cache
 from lm_eval.config.metric import MetricConfig
-from lm_eval.config.task import DataSet, TaskConfig
+from lm_eval.config.task import TaskConfig
+from lm_eval.config.utils import process_field
 from lm_eval.utils import validate_index
 
 
@@ -635,6 +636,8 @@ class ConfigurableTask:
                 )
             self.OUTPUT_TYPE = self.config.output_type
 
+        self.template = self.config.template
+
         self.multiple_targets = self.config.multiple_targets
         self.multiple_inputs = self.config.multiple_inputs
         assert not (self.multiple_targets and self.multiple_inputs), (
@@ -855,32 +858,7 @@ class ConfigurableTask:
     def doc_to_text(
         self, doc: dict, doc_to_text: int | str | Callable[..., str] | None = None
     ) -> str | int:
-        # if self.prompt is not None:
-        #     doc_to_text = self.prompt
-        doc_to_text = doc_to_text or self.config.doc_to_text
-        if callable(doc_to_text):
-            return doc_to_text(doc)
-        if doc_to_text in doc:
-            return doc[doc_to_text]
-        elif isinstance(doc_to_text, str):
-            text_string = utils.apply_template(doc_to_text, doc)
-            if text_string.isdigit() and self.config.doc_to_choice is not None:
-                return ast.literal_eval(text_string)
-            else:
-                return text_string
-        elif isinstance(doc_to_text, int):
-            return doc_to_text
-        # Used when applying a Promptsource template
-        # elif hasattr(doc_to_text, "apply"):
-        #     applied_prompt = doc_to_text.apply(doc)
-        #     if len(applied_prompt) == 2:
-        #         return applied_prompt[0]
-        #     else:
-        #         eval_logger.warning("Applied prompt returns empty string")
-        #         return self.config.fewshot_delimiter
-        else:
-            print(type(doc_to_text))
-            raise TypeError
+        return process_field(doc, doc_to_text or self.config.doc_to_text)
 
     @overload
     def doc_to_target(
@@ -899,48 +877,14 @@ class ConfigurableTask:
     @overload
     def doc_to_target(
         self, doc: dict, doc_to_target: Callable[..., int | str | list[int]]
-    ) -> int | str | list[int]: ...
+    ) -> int | str | Sequence[int]: ...
 
-    def doc_to_target(self, doc: dict, doc_to_target=None) -> int | str | list[int]:
-        # if self.prompt is not None:
-        #     doc_to_target = self.prompt
-        doc_to_target = doc_to_target or self.config.doc_to_target
-        if callable(doc_to_target):
-            doc_to_target(doc)
-        if doc_to_target in doc:
-            return doc[doc_to_target]
-        elif isinstance(doc_to_target, str):
-            target_string = utils.apply_template(doc_to_target, doc)
-            if target_string.isdigit() and self.config.doc_to_choice is not None:
-                return ast.literal_eval(target_string)
-            # elif (
-            #     len(target_string) >= 2
-            #     and (target_string[0] == "[")
-            #     and (target_string[-1] == "]")
-            # ):
-            #     try:
-            #         return ast.literal_eval(target_string)
-            #     except (SyntaxError, ValueError):
-            #         return target_string
-            else:
-                return target_string
-
-        elif isinstance(doc_to_target, (int, list)):
-            return doc_to_target
-        # elif isinstance(doc_to_target, list):
-        #     return doc_to_target
-        # elif callable(doc_to_target):
-        #     return doc_to_target(doc)
-        # # Used when applying a Promptsource template
-        # elif hasattr(doc_to_target, "apply"):
-        #     applied_prompt = doc_to_target.apply(doc)
-        #     if len(applied_prompt) == 2:
-        #         return applied_prompt[1]
-        #     else:
-        #         eval_logger.warning("Applied prompt returns empty string")
-        #         return self.config.fewshot_delimiter
-        else:
-            raise TypeError
+    def doc_to_target(self, doc: dict, doc_to_target=None) -> int | str | Sequence[int]:
+        return process_field(
+            doc,
+            doc_to_target or self.config.doc_to_target,
+            digits=self.config.doc_to_choice is not None,
+        )
 
     @overload
     def doc_to_choice(self, doc: dict, doc_to_choice: None = None) -> list[str]: ...
@@ -964,31 +908,22 @@ class ConfigurableTask:
         doc: dict,
         doc_to_choice: str | list | dict | Callable[..., list[str]] | None = None,
     ) -> list[str]:
-        # if self.prompt is not None:
-        #     doc_to_choice = self.prompt
-        if doc_to_choice is not None:
-            doc_to_choice = doc_to_choice
-        elif self.config.doc_to_choice is None:
-            eval_logger.error("doc_to_choice was called but not set in config")
-            doc_to_choice = None
-        else:
-            doc_to_choice = self.config.doc_to_choice
+        _res = process_field(
+            doc, doc_to_choice or self.config.doc_to_choice, lists=True
+        )
+        return (  # pyright: ignore[reportReturnType]
+            _res
+        )
 
-        if isinstance(doc_to_choice, str):
-            if doc_to_choice in doc:
-                return doc[doc_to_choice]
-            else:
-                return ast.literal_eval(utils.apply_template(doc_to_choice, doc))
-        elif isinstance(doc_to_choice, list):
-            return doc_to_choice
-        elif callable(doc_to_choice):
-            return doc_to_choice(doc)
-        # elif isinstance(doc_to_choice, dict):
-        #     return list(doc_to_choice.values())
-        # elif hasattr(doc_to_choice, "get_answer_choices_list"):
-        #     return doc_to_choice.get_answer_choices_list(doc)
+    def apply_template_format(self, q, c, a):
+        if self.template is not None:
+            return (
+                self.template.format_prompt(q, c, a),
+                self.template.format_choices(q, c, a),
+                self.template.format_target(q, c, a),
+            )
         else:
-            raise TypeError
+            return q, c, a
 
     @overload
     def doc_to_image(self, doc: dict, doc_to_image: None = None) -> None: ...
@@ -1071,23 +1006,22 @@ class ConfigurableTask:
         gen_prefix: str | None,
         *,
         q: str | None = None,
+        c: list[str] | None = None,
         a: str | None = None,
         include_answer: bool = True,
     ) -> list[Message]:
         """Return `[user, assistant?]` for a single doc."""
-        q = q or self.doc_to_text(doc)
-        a = a or self.doc_to_target(doc)
         # Handle multiple-choice indirection
-        if isinstance(q, list) and self.config.doc_to_choice:
+        if isinstance(q, list) and c:
             q = q[cast(int, self.doc_to_target(doc))]
-        if isinstance(a, int) and self.config.doc_to_choice:
+        if isinstance(a, int) and c:
             a = (
                 self.doc_to_choice(doc)[a]
                 if not self.multiple_inputs
                 else self.doc_to_choice(doc)[0]
             )
 
-        assert isinstance(q, str), "Context is not a string!"
+        assert isinstance(q, str), f"Context is not a string! : {q}"
         msgs = [Message("user", q)]
         if include_answer:
             if gen_prefix and not gen_prefix[-1].isspace():
@@ -1169,7 +1103,12 @@ class ConfigurableTask:
                 if self.config.fewshot_split == self.config.test_split
                 else None,
             ):
-                messages += self._doc_to_qa_pair(fs_doc, gen_prefix)
+                q, c, a = self.apply_template_format(
+                    self.doc_to_text(fs_doc),
+                    self.doc_to_choice(fs_doc),
+                    self.doc_to_target(fs_doc),
+                )
+                messages += self._doc_to_qa_pair(fs_doc, gen_prefix, q=q, c=c, a=a)
 
         if self.multiple_inputs:
             # if multiple inputs, then doc_to_text: list[str]
@@ -1185,7 +1124,14 @@ class ConfigurableTask:
             ]
         else:
             # otherwise, doc_to_text: str for all other cases
-            messages += self._doc_to_qa_pair(doc, gen_prefix, include_answer=False)
+            q, c, a = self.apply_template_format(
+                self.doc_to_text(doc),
+                self.doc_to_choice(doc),
+                self.doc_to_target(doc),
+            )
+            messages += self._doc_to_qa_pair(
+                doc, gen_prefix, q=q, c=c, a=a, include_answer=False
+            )
             messages = [messages]
 
         if apply_chat_template and chat_template:
