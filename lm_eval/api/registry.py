@@ -105,9 +105,12 @@ __all__ = [
     "task_registry",
     "metric_registry",
     "metric_agg_registry",
+    "repeat_agg_registry",
     "higher_is_better_registry",
     "filter_registry",
     "freeze_all",
+    "register_repeat_aggregation",
+    "get_repeat_aggregation",
     *LEGACY_EXPORTS,
 ]  # type: ignore
 
@@ -403,6 +406,7 @@ model_registry = cast(Registry[type[LM]], Registry("model", base_cls=LM))
 task_registry: Registry[Callable[..., Any]] = Registry("task")
 metric_registry: Registry[MetricConfig] = Registry("metric")
 metric_agg_registry: Registry[Callable[..., float]] = Registry("metric aggregation")
+repeat_agg_registry: Registry[Callable[..., float]] = Registry("repeat aggregation")
 higher_is_better_registry: Registry[bool] = Registry("higher‑is‑better flag")
 filter_registry: Registry[type[Filter]] = Registry("filter")
 
@@ -526,6 +530,9 @@ def get_metric(name, hf_evaluate_metric=False):
 register_metric_aggregation = metric_agg_registry.register
 get_metric_aggregation = metric_agg_registry.get
 
+register_repeat_aggregation = repeat_agg_registry.register
+get_repeat_aggregation = repeat_agg_registry.get
+
 register_higher_is_better = higher_is_better_registry.register
 is_higher_better = higher_is_better_registry.get
 
@@ -554,6 +561,7 @@ def freeze_all():
         task_registry,
         metric_registry,
         metric_agg_registry,
+        repeat_agg_registry,
         higher_is_better_registry,
         filter_registry,
     ):

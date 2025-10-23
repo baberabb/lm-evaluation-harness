@@ -299,11 +299,12 @@ class TaskConfig:
                     key: metric_config[key]
                     for key in metric_config
                     if key
-                    not in ["metric", "aggregation", "higher_is_better", "hf_evaluate"]
+                    not in ["metric", "aggregation", "repeat_aggregation", "higher_is_better", "hf_evaluate"]
                 }
                 _hf_evaluate_metric: bool = metric_config.get("hf_evaluate", False)
                 _metric_fn = None
                 _aggregation = None
+                _repeat_aggregation = None
 
                 if self.process_results is not None:
                     # User will compute metrics inside `process_results()`
@@ -333,7 +334,23 @@ class TaskConfig:
                         f"aggregation={INV_AGG_REGISTRY[_aggregation]}"
                     )
 
-                # ---------- 4. Determine “higher-is-better” semantics ----------
+                # ---------- 4. Determine repeat aggregation strategy ----------
+                if "repeat_aggregation" in metric_config:
+                    _repeat_agg_config = metric_config["repeat_aggregation"]
+                    if isinstance(_repeat_agg_config, str):
+                        # String name - will be resolved in MetricConfig
+                        _repeat_aggregation = _repeat_agg_config
+                    elif callable(_repeat_agg_config):
+                        # Callable function
+                        _repeat_aggregation = _repeat_agg_config
+                    else:
+                        # Default to "first" for backward compatibility
+                        _repeat_aggregation = "first"
+                else:
+                    # Default to "first" for backward compatibility
+                    _repeat_aggregation = None
+
+                # ---------- 5. Determine "higher-is-better" semantics ----------
                 if "higher_is_better" in metric_config:
                     _higher_is_better = metric_config["higher_is_better"]
                 else:
@@ -350,6 +367,7 @@ class TaskConfig:
                         fn=_metric_fn,
                         kwargs=_metric_fn_kwargs,
                         aggregation_fn=_aggregation,
+                        repeat_aggregation_fn=_repeat_aggregation,
                         higher_is_better=_higher_is_better,
                         hf_evaluate=_hf_evaluate_metric,
                     )

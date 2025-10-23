@@ -1551,22 +1551,55 @@ class ConfigurableTask:
 
         elif self.OUTPUT_TYPE == "generate_until":
             gold = self.doc_to_target(doc)
-            result = results[0]
+
+            # Handle repeats: Calculate metric for each repeat, then aggregate
             for metric in self.config._metric_list:
-                try:
-                    result_score = metric.fn(
-                        references=[gold] if not isinstance(gold, list) else gold,
-                        predictions=[result],
-                        **metric.kwargs,
+                repeat_scores = []
+                repeat_predictions = []
+
+                # Calculate metric for each repeat
+                for result in results:
+                    try:
+                        result_score = metric.fn(
+                            references=[gold] if not isinstance(gold, list) else gold,
+                            predictions=[result],
+                            **metric.kwargs,
+                        )
+                    except TypeError:  # needed for now in order to use a different interface between our own metrics and HF Evaluate metrics
+                        result_score = metric.fn([gold, result])
+
+                    # Handle dict vs scalar metric results
+                    if isinstance(result_score, dict):
+                        # For dict results, only store the main metric value
+                        # (this handles metrics that return multiple values)
+                        if metric.name in result_score:
+                            score_value = result_score[metric.name]
+                        else:
+                            # Use first value if metric name not in dict
+                            score_value = next(iter(result_score.values()))
+                    else:
+                        score_value = result_score
+
+                    repeat_scores.append(score_value)
+                    repeat_predictions.append(result)
+
+                # Apply repeat aggregation
+                if len(repeat_scores) > 1:
+                    # Multiple repeats: aggregate them
+                    aggregated_score = metric.compute_repeat_aggregation(
+                        repeat_scores,
+                        predictions=repeat_predictions,
+                        references=gold,
                     )
-                except TypeError:  # needed for now in order to use a different interface between our own metrics and HF Evaluate metrics
-                    result_score = metric.fn([gold, result])
-                if isinstance(result_score, dict):
-                    # This allows for multiple metrics to be returned from the same function
-                    for k, v in result_score.items():
-                        result_dict[k] = v
                 else:
-                    result_dict[metric.name] = result_score
+                    # Single repeat: use the score directly
+                    aggregated_score = repeat_scores[0] if repeat_scores else 0.0
+
+                # Store both aggregated score and individual repeat scores
+                result_dict[metric.name] = aggregated_score
+                if len(repeat_scores) > 1:
+                    # Store individual repeat scores for analysis
+                    result_dict[f"{metric.name}_repeats"] = repeat_scores
         else:
             raise ValueError(
                 f"Passed invalid output_type '{self.OUTPUT_TYPE}' ! Please use one of ",

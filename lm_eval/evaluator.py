@@ -55,6 +55,7 @@ def simple_evaluate(
     model_args: str | dict[str, Any] | None = None,
     tasks: list[str | dict | object] | None = None,
     num_fewshot: int | None = None,
+    num_repeats: int | None = None,
     batch_size: int | str | None = None,
     max_batch_size: int | None = None,
     device: str | None = None,
@@ -94,6 +95,8 @@ def simple_evaluate(
         List of task names or Task objects. Task objects will be taken to have name task.EVAL_HARNESS_NAME if defined and type(task).__name__ otherwise.
     :param num_fewshot: int
         Number of examples in few-shot context
+    :param num_repeats: int, optional
+        Number of repeat generations per sample. Overrides task-level repeat configuration.
     :param batch_size: int or str, optional
         Batch size for model
     :param max_batch_size: int, optional
@@ -336,6 +339,15 @@ def simple_evaluate(
                         task_obj.set_config(key="num_fewshot", value=0)
                 # fewshot_random_seed set for tasks, even with a default num_fewshot (e.g. in the YAML file)
                 task_obj.set_fewshot_seed(seed=fewshot_random_seed)
+
+                # override tasks' repeat values to the provided num_repeats arg value
+                if num_repeats is not None:
+                    default_num_repeats = task_obj.get_config("repeats") or 1
+                    if default_num_repeats != num_repeats:
+                        eval_logger.warning(
+                            f"Overwriting default repeats of {task_name} from {default_num_repeats} to {num_repeats}"
+                        )
+                    task_obj.set_config(key="repeats", value=num_repeats)
 
                 adjusted_task_dict[task_name] = task_obj
 

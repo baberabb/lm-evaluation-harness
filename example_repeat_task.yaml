@@ -1,0 +1,52 @@
+# Example task configuration demonstrating new repeat metrics functionality
+# This is a simplified example showing how to use repeat aggregation
+
+task: example_repeat_task
+dataset_path: gsm8k  # Example dataset
+dataset_name: main
+output_type: generate_until
+test_split: test
+
+# Generate 5 outputs per sample
+repeats: 5
+
+# Simple prompt template
+doc_to_text: "Question: {{question}}\nAnswer:"
+doc_to_target: "{{answer}}"
+
+# Generation configuration
+generation_kwargs:
+  max_gen_toks: 256
+  do_sample: true
+  temperature: 0.7
+
+# Metrics with different repeat aggregation strategies
+metric_list:
+  # Metric 1: Use majority voting across 5 repeats
+  - metric: exact_match
+    aggregation: mean
+    repeat_aggregation: majority
+    higher_is_better: true
+
+  # Metric 2: Take the best score across 5 repeats
+  - metric: exact_match
+    aggregation: mean
+    repeat_aggregation: max
+    higher_is_better: true
+
+  # Metric 3: Pass@5 style - 1.0 if any repeat is correct
+  - metric: exact_match
+    aggregation: mean
+    repeat_aggregation: any_correct
+    higher_is_better: true
+
+  # Metric 4: Average score across all repeats
+  - metric: exact_match
+    aggregation: mean
+    repeat_aggregation: mean
+    higher_is_better: true
+
+num_fewshot: 0
+metadata:
+  version: 1.0
+  description: "Example task demonstrating repeat metrics"

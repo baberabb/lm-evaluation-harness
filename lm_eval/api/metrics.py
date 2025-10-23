@@ -11,7 +11,11 @@ from typing import Generic, TypeVar
 
 import numpy as np
 
-from lm_eval.api.registry import register_aggregation, register_metric
+from lm_eval.api.registry import (
+    register_aggregation,
+    register_metric,
+    register_repeat_aggregation,
+)
 
 
 T = TypeVar("T")
@@ -159,6 +163,72 @@ def pass_at_k(n: int, c: int, k: int = 1):
     if n - c < k:
         return 1.0
     return 1.0 - np.prod(1.0 - k / np.arange(n - c + 1, n + 1))
+
+
+# Register Repeat Aggregations
+@register_repeat_aggregation("first")
+def repeat_first(scores: list[float], **kwargs) -> float:
+    """Take the first repeat score (default, backward compatible)."""
+    return scores[0] if scores else 0.0
+
+
+@register_repeat_aggregation("mean")
+def repeat_mean(scores: list[float], **kwargs) -> float:
+    """Average scores across repeats."""
+    return mean(scores) if scores else 0.0
+
+
+@register_repeat_aggregation("max")
+def repeat_max(scores: list[float], **kwargs) -> float:
+    """Maximum score across repeats."""
+    return max(scores) if scores else 0.0
+
+
+@register_repeat_aggregation("min")
+def repeat_min(scores: list[float], **kwargs) -> float:
+    """Minimum score across repeats."""
+    return min(scores) if scores else 0.0
+
+
+@register_repeat_aggregation("majority")
+def repeat_majority(scores: list[float], predictions: list[str] = None, **kwargs) -> float:
+    """
+    Select most common prediction and return its score.
+    Requires predictions to be passed.
+    """
+    if not predictions or not scores:
+        return 0.0
+
+    from collections import Counter
+
+    # Count predictions
+    counts = Counter(predictions)
+    majority_pred = counts.most_common(1)[0][0]
+
+    # Find first occurrence of majority prediction and return its score
+    for pred, score in zip(predictions, scores):
+        if pred == majority_pred:
+            return score
+
+    return scores[0]
+
+
+@register_repeat_aggregation("any_correct")
+def repeat_any_correct(scores: list[float], **kwargs) -> float:
+    """
+    Return 1.0 if any repeat is correct (score == 1.0), else 0.0.
+    Useful for pass@k style evaluation.
+    """
+    return 1.0 if any(score >= 1.0 for score in scores) else 0.0
+
+
+@register_repeat_aggregation("all_correct")
+def repeat_all_correct(scores: list[float], **kwargs) -> float:
+    """
+    Return 1.0 if all repeats are correct (score == 1.0), else 0.0.
+    Useful for strict evaluation.
+    """
+    return 1.0 if all(score >= 1.0 for score in scores) else 0.0
 
 
 @register_metric(

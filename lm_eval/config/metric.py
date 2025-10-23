@@ -18,6 +18,7 @@ class MetricConfig:
     fn: Callable = lambda x: x
     kwargs: Mapping[str, Any] = field(default_factory=dict)
     aggregation_fn: Callable = lambda x: x
+    repeat_aggregation_fn: Callable | str | None = None  # NEW: for aggregating across repeats
     is_bypass: bool = False
     higher_is_better: bool = True
     hf_evaluate: bool = False
@@ -71,6 +72,27 @@ class MetricConfig:
                 return None
         return self.higher_is_better
 
+    @cached_property
+    def repeat_aggregation(self) -> Callable[..., Any] | None:
+        """Resolve repeat aggregation function from registry if needed."""
+        from lm_eval.api.registry import get_repeat_aggregation
+
+        if self.repeat_aggregation_fn is None:
+            # Default to "first" for backward compatibility
+            try:
+                return get_repeat_aggregation("first")
+            except (KeyError, ImportError):
+                return None
+        elif isinstance(self.repeat_aggregation_fn, str):
+            # Lookup in registry
+            try:
+                return get_repeat_aggregation(self.repeat_aggregation_fn)
+            except (KeyError, ImportError):
+                return None
+        else:
+            # Already a callable
+            return self.repeat_aggregation_fn
+
     def compute_metric(self, *args, **kwargs) -> Any:
         """Calculates the metric using the provided function and arguments."""
         if self.fn is None:
@@ -82,3 +104,11 @@ class MetricConfig:
         if self.aggregation_fn is None:
             raise ValueError(f"Aggregation function for {self.name} is not defined.")
         return self.aggregation_fn(*args, **kwargs)
+
+    def compute_repeat_aggregation(self, scores: list[float], **kwargs) -> float:
+        """Computes the aggregation across repeat generations."""
+        repeat_agg_fn = self.repeat_aggregation
+        if repeat_agg_fn is None:
+            # Fallback to first if not defined
+            return scores[0] if scores else 0.0
+        return repeat_agg_fn(scores, **kwargs)
