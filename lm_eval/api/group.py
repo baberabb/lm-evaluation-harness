@@ -13,9 +13,13 @@ class AggMetricConfig(dict):
     filter_list: Optional[Union[str, list]] = "none"
 
     def __post_init__(self):
-        if self.aggregation != "mean" and not callable(self.aggregation):
+        # Valid aggregation types (expanded from just "mean")
+        valid_agg_types = ["mean", "harmonic_mean", "geometric_mean", "pass@k"]
+
+        if self.aggregation not in valid_agg_types and not callable(self.aggregation):
             raise ValueError(
-                f"Currently, 'mean' is the only pre-defined aggregation across groups' subtasks. Got '{self.aggregation}'."
+                f"Invalid aggregation type: '{self.aggregation}'. "
+                f"Expected one of {valid_agg_types} or a callable function."
             )
 
         if isinstance(self.filter_list, str):

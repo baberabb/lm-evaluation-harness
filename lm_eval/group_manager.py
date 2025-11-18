@@ -72,12 +72,17 @@ class GroupManager:
         """
         # Phase 1: Create all groups first
         for name, config in config_dict.items():
-            if isinstance(config, dict):
+            # Check if it's already a GroupConfig first (before checking dict)
+            if isinstance(config, GroupConfig):
+                pass  # Already a GroupConfig, use as-is
+            elif isinstance(config, dict):
                 # Check if it's a group config (has 'group' field)
                 if "group" in config:
                     config = GroupConfig(**config)
                 else:
                     continue
+            else:
+                continue
 
             if isinstance(config, GroupConfig):
                 # Check if this is a tag
