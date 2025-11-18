@@ -1,0 +1,376 @@
+SCORER ARCHITECTURE - VISUAL OVERVIEW
+=====================================
+
+1. CLASS HIERARCHY
+==================
+
+                        ┌──────────────┐
+                        │   Scorer     │
+                        │   (Abstract) │
+                        └──────┬───────┘
+                               │
+           ┌───────────────────┼───────────────────┐
+           │                   │                   │
+    ┌──────▼─────────┐  ┌──────▼──────────┐  ┌────▼──────────────┐
+    │ ProcessResults │  │   Generation    │  │  Loglikelihood    │
+    │    Scorer      │  │     Scorer      │  │     Scorer        │
+    └────────────────┘  └─────────────────┘  └───────────────────┘
+    (custom logic)      (generate_until)     (loglikelihood/MC)
+                               │
+                        ┌──────┴──────┐
+                        │             │
+                  ┌─────▼────────┐  ┌─▼─────────────┐
+                  │ RewardModel  │  │  LLMJudge     │
+                  │   Scorer     │  │   Scorer      │
+                  └──────────────┘  └───────────────┘
+                  (custom ext.)     (custom ext.)
+
+
+2. DATA FLOW
+============
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ STEP 1: Model Execution                                             │
+│ ─────────────────────────────────────────────────────────────────── │
+│                                                                     │
+│  lm.generate_until(requests) → instance.resps = ["text1", "text2"] │
+│  lm.loglikelihood(requests)  → instance.resps = [(0.8, True), ...] │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│ STEP 2: Apply Filters                                               │
+│ ─────────────────────────────────────────────────────────────────── │
+│                                                                     │
+│  For each FilterEnsemble (e.g., "strict-match", "flexible"):       │
+│    1. Extract instance.resps for all instances                     │
+│    2. Apply filter pipeline:                                       │
+│       resps → RegexFilter → LowercaseFilter → TakeFirstFilter      │
+│    3. Store in instance.filtered_resps[filter_name]                │
+│                                                                     │
+│  Example:                                                           │
+│    instance.resps = ["The answer is 42.", "Answer: 7"]             │
+│    → RegexFilter(r"(\d+)")                                          │
+│    → instance.filtered_resps["numbers"] = ["42", "7"]              │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│ STEP 3: Score Instances (NEW with Scorer)                          │
+│ ─────────────────────────────────────────────────────────────────── │
+│                                                                     │
+│  task.process_instances(instances)                                 │
+│    │                                                                │
+│    ├─ 1. Group instances by doc_id                                 │
+│    │    {0: [inst0_1, inst0_2], 1: [inst1_1], ...}                 │
+│    │                                                                │
+│    ├─ 2. For each filter (e.g., "strict-match"):                   │
+│    │    │                                                           │
+│    │    └─ For each document's instances:                          │
+│    │       │                                                        │
+│    │       ├─ scorer.score_instances(doc_insts, "strict-match")    │
+│    │       │   │                                                    │
+│    │       │   ├─ A. Create Result object                          │
+│    │       │   │    GenResult.from_instances(insts, filter_name)   │
+│    │       │   │    → GenResult(                                   │
+│    │       │   │         results=["42", "7"],                       │
+│    │       │   │         target="42",                               │
+│    │       │   │         instances=[...]                            │
+│    │       │   │      )                                             │
+│    │       │   │                                                    │
+│    │       │   ├─ B. Get metrics for this filter                   │
+│    │       │   │    [exact_match, f1_score]                        │
+│    │       │   │                                                    │
+│    │       │   ├─ C. Apply each metric                             │
+│    │       │   │    for generation in results:                     │
+│    │       │   │      for metric in metrics:                       │
+│    │       │   │        score = metric.fn(                         │
+│    │       │   │          predictions=[generation],                │
+│    │       │   │          references=[target]                      │
+│    │       │   │        )                                           │
+│    │       │   │                                                    │
+│    │       │   └─ D. Return GenResult with scores                  │
+│    │       │        GenResult.scores = {                           │
+│    │       │          "exact_match": [1.0, 0.0],                   │
+│    │       │          "f1_score": [1.0, 0.5]                       │
+│    │       │        }                                               │
+│    │       │                                                        │
+│    │       └─ Collect scores by (metric, filter)                   │
+│    │          results[("exact_match", "strict-match")] = [1.0, 0.0]│
+│    │                                                                │
+│    └─ 3. Store in task._sample_scores                              │
+│         {                                                           │
+│           ("exact_match", "strict-match"): [1.0, 0.0, 1.0, ...],  │
+│           ("f1_score", "strict-match"): [1.0, 0.5, 0.8, ...],     │
+│         }                                                           │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│ STEP 4: Aggregate Scores                                            │
+│ ─────────────────────────────────────────────────────────────────── │
+│                                                                     │
+│  task.compute_aggregations(sample_scores)                          │
+│    │                                                                │
+│    └─ For each (metric, filter):                                   │
+│       ├─ Get aggregation function (e.g., mean, max)                │
+│       ├─ Apply to all sample scores                                │
+│       │    mean([1.0, 0.0, 1.0, ...]) = 0.67                       │
+│       └─ Compute stderr if bootstrap_iters > 0                     │
+│                                                                     │
+│    Output:                                                          │
+│      {                                                              │
+│        "exact_match,strict-match": 0.67,                           │
+│        "exact_match_stderr,strict-match": 0.05,                    │
+│        "f1_score,strict-match": 0.72,                              │
+│        ...                                                          │
+│      }                                                              │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+
+
+3. COMPONENT RESPONSIBILITIES
+==============================
+
+┌──────────────────┬────────────────────────────────────────────────┐
+│ Component        │ Responsibility                                 │
+├──────────────────┼────────────────────────────────────────────────┤
+│ Task             │ - Orchestrate overall flow                     │
+│                  │ - Build requests from docs                     │
+│                  │ - Store instances and filters                  │
+│                  │ - Call scorer at the right time                │
+├──────────────────┼────────────────────────────────────────────────┤
+│ Filter           │ - Transform model outputs                      │
+│                  │ - Extract relevant information                 │
+│                  │ - Normalize/clean text                         │
+│                  │ - NO scoring logic                             │
+├──────────────────┼────────────────────────────────────────────────┤
+│ Scorer           │ - Create Result objects from instances         │
+│                  │ - Get appropriate metrics for filter           │
+│                  │ - Apply metrics to filtered outputs            │
+│                  │ - Handle different output types                │
+│                  │ - Return scored results                        │
+├──────────────────┼────────────────────────────────────────────────┤
+│ Metric           │ - Define single scoring function               │
+│                  │ - Compute score for one sample                 │
+│                  │ - Define aggregation method                    │
+│                  │ - NO knowledge of filters or tasks             │
+├──────────────────┼────────────────────────────────────────────────┤
+│ ScorerFactory    │ - Choose right scorer based on task config     │
+│                  │ - Handle process_results override              │
+│                  │ - Create scorer instance                       │
+└──────────────────┴────────────────────────────────────────────────┘
+
+
+4. FILTER → METRIC RELATIONSHIP
+================================
+
+OLD WAY (Implicit):
+-------------------
+Task has metrics, filters exist, relationship unclear
+
+NEW WAY (Explicit):
+-------------------
+
+FilterConfig("strict-match")
+  ├─ FilterEnsemble
+  │    ├─ RegexFilter
+  │    └─ LowercaseFilter
+  │
+  └─ MetricList
+       ├─ exact_match
+       └─ f1_score
+
+FilterConfig("flexible")
+  ├─ FilterEnsemble
+  │    └─ TakeFirstFilter
+  │
+  └─ MetricList
+       ├─ exact_match
+       └─ bleu
+
+The Scorer knows how to get metrics for each filter:
+
+  scorer.get_metrics("strict-match") → [exact_match, f1_score]
+  scorer.get_metrics("flexible") → [exact_match, bleu]
+
+
+5. EXAMPLE: Multiple Filters with Different Metrics
+====================================================
+
+YAML Config:
+-----------
+filter_list:
+  - name: "strict"
+    filter:
+      - function: regex
+        pattern: "Answer: (.*)"
+    metric_list:
+      - metric: exact_match
+      - metric: f1_score
+
+  - name: "lenient"
+    filter:
+      - function: take_first
+    metric_list:
+      - metric: bleu
+      - metric: rouge
+
+
+Execution Flow:
+--------------
+
+Instance: "The answer is: 42"
+Target: "42"
+
+1. Apply Filters:
+   - "strict" filter → "42"
+   - "lenient" filter → "The answer is: 42"
+
+2. Score with "strict" filter:
+   scorer.score_instances(instances, "strict")
+     → GenResult(results=["42"], target="42")
+     → metrics = [exact_match, f1_score]
+     → exact_match("42", "42") = 1.0
+     → f1_score("42", "42") = 1.0
+     → scores = {"exact_match": [1.0], "f1_score": [1.0]}
+
+3. Score with "lenient" filter:
+   scorer.score_instances(instances, "lenient")
+     → GenResult(results=["The answer is: 42"], target="42")
+     → metrics = [bleu, rouge]
+     → bleu(...) = 0.5
+     → rouge(...) = 0.6
+     → scores = {"bleu": [0.5], "rouge": [0.6]}
+
+4. Collect Results:
+   {
+     ("exact_match", "strict"): [1.0],
+     ("f1_score", "strict"): [1.0],
+     ("bleu", "lenient"): [0.5],
+     ("rouge", "lenient"): [0.6]
+   }
+
+
+6. EXTENSIBILITY EXAMPLES
+==========================
+
+Example 1: Custom Scorer for Reward Model
+------------------------------------------
+
+class RewardModelScorer(GenerationScorer):
+    def __init__(self, task_config, reward_model_path):
+        super().__init__(task_config)
+        self.reward_model = load_reward_model(reward_model_path)
+
+    def _compute_metrics(self, gen_result, metrics):
+        # Compute standard metrics
+        scores = super()._compute_metrics(gen_result, metrics)
+
+        # Add reward model scores
+        scores['reward'] = [
+            self.reward_model.score(gen)
+            for gen in gen_result.results
+        ]
+        return scores
+
+
+Example 2: Ensemble Scorer
+---------------------------
+
+class EnsembleScorer(Scorer):
+    def __init__(self, scorers: list[Scorer], weights: list[float]):
+        self.scorers = scorers
+        self.weights = weights
+
+    def score_instances(self, instances, filter_name):
+        results = [
+            scorer.score_instances(instances, filter_name)
+            for scorer in self.scorers
+        ]
+
+        # Combine scores with weights
+        return self._weighted_combination(results)
+
+
+Example 3: Cross-Filter Scorer
+-------------------------------
+
+class AgreementScorer(Scorer):
+    def score_instances(self, instances, filter_name):
+        # Get results from ALL filters
+        all_results = {
+            fname: [inst.filtered_resps[fname] for inst in instances]
+            for fname in instances[0].filtered_resps.keys()
+        }
+
+        # Compute agreement between filters
+        agreement_score = self._compute_agreement(all_results)
+
+        return {"filter_agreement": agreement_score}
+
+
+7. MIGRATION PATH
+=================
+
+Phase 1: Add Scorer (Backwards Compatible)
+───────────────────────────────────────────
+├─ Add lm_eval/api/scorer.py
+├─ Implement base Scorer classes
+├─ Keep existing _process_instances
+└─ Tests for scorer in isolation
+
+Phase 2: Integrate with Task
+─────────────────────────────
+├─ Add _scorer to Task.__init__
+├─ Update Task.process_instances to use scorer
+├─ Deprecate _process_instances
+└─ Integration tests
+
+Phase 3: Cleanup Task Subclasses
+─────────────────────────────────
+├─ Remove _process_instances from GenerateTask
+├─ Remove _process_instances from MultipleChoiceTask
+├─ Simplify to just construct_requests
+└─ Update all tests
+
+Phase 4: Documentation & Examples
+──────────────────────────────────
+├─ Update API docs
+├─ Add custom scorer examples
+├─ Migration guide
+└─ Best practices
+
+
+8. KEY BENEFITS
+===============
+
+✓ Separation of Concerns
+  - Filters transform outputs (NO scoring)
+  - Scorers compute metrics (NO filtering)
+  - Tasks orchestrate (NO implementation details)
+
+✓ Extensibility
+  - Easy to add new scorers
+  - Compose scorers together
+  - Override specific behaviors
+
+✓ Type Safety
+  - Generic types ensure correctness
+  - Clear interfaces
+  - Better IDE support
+
+✓ Testability
+  - Test scorers independently
+  - Mock components easily
+  - Clear contracts
+
+✓ Backwards Compatibility
+  - ProcessResultsScorer handles legacy code
+  - No breaking changes
+  - Gradual migration path
+
+✓ Clarity
+  - Explicit filter-metric relationships
+  - Clear data flow
+  - Self-documenting code
