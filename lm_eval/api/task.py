@@ -116,6 +116,10 @@ class Task(ABC):
         # created in build_all_requests
         self._instances = None
 
+        # Group membership tracking (for new Group architecture)
+        self._groups: list = []  # List of Group objects this task belongs to
+        self._tags: list[str] = []  # List of tag names attached to this task
+
         ## outputs
         # samples are saves as (metric, filer) tuples
         self._sample_scores: dict[tuple[str, str], Any] = defaultdict(list)
@@ -728,6 +732,40 @@ class Task(ABC):
     def task_name(self) -> str | None:
         """Return the task name."""
         return getattr(self.config, "task", None)
+
+    @property
+    def groups(self) -> list:
+        """
+        Get all groups this task belongs to.
+
+        Returns:
+            List of Group objects containing this task
+        """
+        return self._groups
+
+    @property
+    def tags(self) -> list[str]:
+        """
+        Get all tags attached to this task.
+
+        Returns:
+            List of tag names
+        """
+        return self._tags
+
+    def add_to_group(self, group) -> None:
+        """
+        Add this task to a group.
+
+        This creates a bidirectional link: the task knows about the group,
+        and the group adds the task as a child.
+
+        Args:
+            group: Group object to add this task to
+        """
+        if group not in self._groups:
+            self._groups.append(group)
+            group.add_child(self)
 
     def training_docs(self) -> "TaskDataSet | None":
         return self.get_docs("training_split")
