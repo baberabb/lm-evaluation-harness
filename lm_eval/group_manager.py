@@ -120,6 +120,9 @@ class GroupManager:
                     group.add_child(task)
                 # else: Task/group not found yet, might be added later
 
+        # Phase 3: Update root_groups list after relationships are established
+        self.root_groups = [g for g in self.groups.values() if g.parent is None]
+
     def add_task_to_group(self, task: Any, group_name: str) -> None:
         """
         Add a task to a group.
