@@ -5,7 +5,7 @@ import pathlib
 import sys
 from typing import List, Optional, Tuple, Union
 
-from lm_eval.api.group import ConfigurableGroup
+from lm_eval.api.group import ConfigurableGroup, GroupConfig
 from lm_eval.api.metrics import (
     aggregate_subtask_metrics,
     mean,
@@ -13,6 +13,7 @@ from lm_eval.api.metrics import (
     stderr_for_metric,
 )
 from lm_eval.api.task import Task
+from lm_eval.group_manager import GroupManager
 from lm_eval.utils import positional_deprecated
 
 
@@ -372,6 +373,125 @@ def consolidate_results(
     return results, samples, configs, versions, num_fewshot, higher_is_better
 
 
+def _build_group_manager_from_task_dict(task_dict, group_configs=None):
+    """
+    Build a GroupManager from the task_dict structure.
+
+    Args:
+        task_dict: Nested dict with ConfigurableGroup keys and Task values
+        group_configs: Optional dict mapping group_name -> GroupConfig
+
+    Returns:
+        GroupManager instance with hierarchy built
+    """
+    if group_configs is None:
+        group_configs = {}
+
+    manager = GroupManager()
+
+    # Phase 1: Extract all groups and tasks recursively
+    def extract_groups_and_tasks(d, parent_name=None):
+        for key, value in d.items():
+            if isinstance(key, ConfigurableGroup):
+                # Group key - extract config
+                group_name = key.group_name
+                group_config = GroupConfig(**key.config)
+                group_configs[group_name] = group_config
+
+                # Recurse into subgroups/tasks
+                if isinstance(value, dict):
+                    extract_groups_and_tasks(value, parent_name=group_name)
+            elif isinstance(value, Task):
+                # Task - register it
+                manager.register_task(value)
+            elif isinstance(value, dict):
+                # Plain string key with nested dict - treat as group
+                extract_groups_and_tasks(value, parent_name=key)
+
+    extract_groups_and_tasks(task_dict)
+
+    # Phase 2: Build hierarchy from configs
+    if group_configs:
+        manager.build_hierarchy(group_configs)
+
+    return manager, group_configs
+
+
+def consolidate_group_results_v2(
+    results,
+    versions,
+    task_dict,
+) -> Tuple[dict, dict, bool, dict]:
+    """
+    Calculate groups' aggregated metrics using the new GroupManager architecture.
+
+    This is the new implementation that uses GroupManager and Aggregator classes
+    for flexible metric aggregation beyond just mean.
+
+    Args:
+        results: Dict mapping task_name -> {metric: value}
+        versions: Dict mapping task_name -> version
+        task_dict: Nested dict with ConfigurableGroup keys and Task values
+
+    Returns:
+        Tuple of (results, versions, show_group_table, task_aggregation_list)
+        - results: Updated with group-level metrics
+        - versions: Updated with group versions
+        - show_group_table: True if any group has aggregation
+        - task_aggregation_list: Dict mapping group_name -> [task_names]
+    """
+    # Build GroupManager from task_dict
+    manager, group_configs = _build_group_manager_from_task_dict(task_dict)
+
+    # Compute all group metrics using GroupManager
+    group_results = manager.compute_all_group_metrics(results)
+
+    # Track task aggregation for reporting
+    task_aggregation_list = {}
+    show_group_table = False
+
+    # Merge group results back into results dict
+    for group_name, group in manager.groups.items():
+        if group_name not in group_results:
+            results[group_name] = {" ": " "}
+            continue
+
+        # Get group config
+        group_config = group.config
+
+        # Check if we should show group table
+        if group_config.aggregate_metric_list:
+            show_group_table = True
+
+        # Track which tasks contribute to this group
+        task_names = [
+            getattr(task, "task_name", task.name)
+            for task in group.get_all_tasks()
+        ]
+        task_aggregation_list[group_name] = task_names
+
+        # Add group metrics to results
+        if group_name not in results:
+            results[group_name] = {}
+
+        results[group_name].update(group_results[group_name])
+
+        # Compute sample count
+        if task_names:
+            total_samples = sum(
+                results.get(task_name, {}).get("samples", 0)
+                for task_name in task_names
+            )
+            results[group_name]["samples"] = total_samples
+
+        # Handle group version
+        group_metadata = group_config.metadata or {}
+        if "version" in group_metadata:
+            versions[group_name] = group_metadata["version"]
+
+    return results, versions, show_group_table, task_aggregation_list
+
+
 def consolidate_group_results(
     results,
     versions,
@@ -382,6 +502,9 @@ def consolidate_group_results(
 ) -> Tuple[dict, dict, bool, Union[None,]]:
     """
     (Recursively) calculates groups' aggregated metrics and updates the results and versions dictionaries with this info.
+
+    NOTE: This is the legacy implementation. For new code, consider using consolidate_group_results_v2()
+    which uses the GroupManager architecture for more flexible aggregation.
 
     @return: a tuple [results, versions, show_group_table, task_aggregation_list] with formats described below:
 
@@ -395,6 +518,16 @@ def consolidate_group_results(
     The method then returns the updated results, versions, show_group_table, and task_aggregation_list as a tuple.
     In the top-level invocation of this function, task_aggregation_list is ignored.
     """
+    # Try to use new GroupManager approach for top-level call
+    if task_root is None and task_aggregation_list is None:
+        try:
+            return consolidate_group_results_v2(results, versions, task_dict)
+        except Exception as e:
+            # Fall back to legacy implementation if new approach fails
+            eval_logger.debug(
+                f"GroupManager approach failed ({e}), falling back to legacy implementation"
+            )
+            pass
     if task_root is None:
         task_root = {}
 
