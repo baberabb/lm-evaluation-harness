@@ -5,7 +5,7 @@ import pathlib
 import sys
 from typing import List, Optional, Tuple, Union
 
-from lm_eval.api.group import ConfigurableGroup
+from lm_eval.api.group import ConfigurableGroup, Group
 from lm_eval.api.metrics import (
     aggregate_subtask_metrics,
     mean,
@@ -370,6 +370,98 @@ def consolidate_results(
                 task_output.agg_metrics[f"{metric}_stderr,{filter_key}"]
             )
     return results, samples, configs, versions, num_fewshot, higher_is_better
+
+
+def build_group_hierarchy(task_dict: dict) -> dict[str, Group]:
+    """Build Group objects from task_dict structure.
+
+    Converts the nested dictionary structure into Group objects,
+    enabling the use of compute_group_aggregations.
+
+    Args:
+        task_dict: Nested dictionary of tasks and groups
+
+    Returns:
+        Dictionary mapping group_name -> Group instance
+    """
+    from lm_eval.api.group import GroupConfig
+
+    groups = {}
+
+    def _extract_groups(d, parent_group=None):
+        """Recursively extract groups from nested dict."""
+        for key, value in d.items():
+            # Check if this is a ConfigurableGroup
+            if isinstance(key, ConfigurableGroup):
+                group_name = key.group_name
+                config = GroupConfig(**key.config) if isinstance(key.config, dict) else key._config
+
+                # Create Group instance
+                group = Group(group_name, config)
+                groups[group_name] = group
+
+                # If there's a parent, add this as a subgroup
+                if parent_group:
+                    parent_group.add_task(group)
+
+                # Recursively process nested items
+                if isinstance(value, dict):
+                    _extract_groups(value, parent_group=group)
+                elif isinstance(value, Task):
+                    group.add_task(value)
+
+            elif isinstance(value, dict):
+                # Continue recursing
+                _extract_groups(value, parent_group=parent_group)
+            elif isinstance(value, Task):
+                # Add task to parent group if exists
+                if parent_group:
+                    parent_group.add_task(value)
+
+    _extract_groups(task_dict)
+    return groups
+
+
+def compute_group_aggregations(
+    results: dict, groups: dict[str, Group], bootstrap_iters: int = 100000
+) -> Tuple[dict, dict]:
+    """Compute aggregated metrics for all groups using Group objects.
+
+    This is the simplified version that uses the new Group class.
+    Much simpler than the recursive consolidate_group_results.
+
+    Args:
+        results: Dictionary mapping task_name -> task_metrics
+        groups: Dictionary mapping group_name -> Group instance
+        bootstrap_iters: Number of bootstrap iterations for stderr
+
+    Returns:
+        Tuple of (updated_results, updated_versions)
+
+    Example:
+        >>> groups = build_group_hierarchy(task_dict)
+        >>> results, versions = compute_group_aggregations(task_results, groups)
+    """
+    updated_results = results.copy()
+    updated_versions = {}
+
+    for group_name, group in groups.items():
+        # Group computes its own aggregations!
+        agg_metrics = group.compute_aggregate_metrics(results, bootstrap_iters)
+
+        if agg_metrics:
+            # Update results with aggregated metrics
+            updated_results[group_name] = {
+                **updated_results.get(group_name, {}),
+                **agg_metrics,
+                "alias": group.alias,
+            }
+
+            # Set version if available
+            if group.version:
+                updated_versions[group_name] = group.version
+
+    return updated_results, updated_versions
 
 
 def consolidate_group_results(
