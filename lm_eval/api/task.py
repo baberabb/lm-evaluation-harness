@@ -23,7 +23,7 @@ from lm_eval.api.utils import (
 from lm_eval.caching.cache import load_from_cache, save_to_cache
 from lm_eval.config.task import TaskConfig
 from lm_eval.config.utils import process_field
-from lm_eval.types import GenResult, MCResult, Results
+from lm_eval.types import GenResult, MCResult
 
 
 if TYPE_CHECKING:
@@ -600,6 +600,40 @@ class Task(ABC):
             instances.sort(key=lambda x: x.idx)
         return instances_by_doc_id
 
+    def _get_metrics_for_filter(self, filter_cfg):
+        """Get metrics for a filter with fallback to task-level metrics.
+
+        Determines which metrics to use for a given filter configuration.
+        Follows this precedence:
+            1. filter_cfg.metric_list (if specified in filter configuration)
+            2. self.config._metric_list (task-level default metrics)
+
+        This allows filters to have their own specific metrics while falling
+        back to the task's default metrics when not specified.
+
+        Args:
+            filter_cfg: FilterConfig object containing filter settings
+
+        Returns:
+            list[MetricConfig]: List of metric configurations to compute
+
+        Example:
+            # Filter with custom metrics (uses filter.metric_list)
+            filter_list:
+              - name: strict
+                filter: [...]
+                metric_list:
+                  - metric: exact_match
+
+            # Filter without metrics (uses task.metric_list)
+            filter_list:
+              - name: flexible
+                filter: [...]
+        """
+        if filter_cfg.metric_list:
+            return filter_cfg.metric_list
+        return self.config._metric_list
+
     def process_instances(self, instances: list[Instance] | None = None):
         """Primary method for processing instances to compute metrics.
 
@@ -622,19 +656,23 @@ class Task(ABC):
         if callable(self.config.process_results):
             for filter_cfg in self._filters:
                 for doc_instances in _instances.values():
-                    result = Results.create(doc_instances, filter_cfg.name)
-                    metrics = self.process_results(
-                        result.doc,
-                        [result.results[filter_cfg.name]],
-                    )
+                    # Use task-specific result creation
+                    result = self._create_result(doc_instances, filter_cfg.name)
+                    # For GenResult: result.instances[0].doc
+                    # For MCResult: result.instances[0].doc
+                    doc = result.instances[0].doc
+                    # For GenResult: result.results is Sequence[str]
+                    # For MCResult: result.lls is Sequence[float] - need to adapt
+                    results = getattr(result, 'results', getattr(result, 'lls', []))
+                    metrics = self.process_results(doc, results)
                     if metrics is not None:
                         for metric_name, value in metrics.items():
                             sample_scores[(metric_name, filter_cfg.name)].append(value)
         else:
             # Unified iteration pattern: filter → doc → metric
             for filter_cfg in self._filters:
-                # Use filter's metrics if specified, else fall back to global
-                metrics = filter_cfg.metric_list if filter_cfg.metric_list else self.config._metric_list
+                # Get metrics for this filter (with fallback to task-level metrics)
+                metrics = self._get_metrics_for_filter(filter_cfg)
 
                 for doc_id, doc_instances in _instances.items():
                     # Create result object (task-type specific)
@@ -653,7 +691,7 @@ class Task(ABC):
         return self._sample_scores
 
     @abstractmethod
-    def _create_result(self, instances: list[Instance], filter_name: str):
+    def _create_result(self, instances: list[Instance], filter_name: str) -> GenResult | MCResult:
         """Create a result object (GenResult or MCResult) from instances.
 
         This method must be overridden in subclasses to return their specific
@@ -671,7 +709,7 @@ class Task(ABC):
         )
 
     @abstractmethod
-    def _compute_metric(self, result, metric: "MetricConfig"):
+    def _compute_metric(self, result: GenResult | MCResult, metric: "MetricConfig") -> float | list[float] | None:
         """Compute a single metric from a result object.
 
         This method must be overridden in subclasses to handle their specific
@@ -780,13 +818,11 @@ class GenerateTask(Task):
             **instance_kwargs,
         )
 
-    def _create_result(self, instances: list[Instance], filter_name: str):
+    def _create_result(self, instances: list[Instance], filter_name: str) -> GenResult:
         """Create GenResult from instances."""
-        from lm_eval.types import GenResult
-
         return GenResult.from_instances(instances, filter_name=filter_name)
 
-    def _compute_metric(self, gen_result: "GenResult", metric: "MetricConfig"):
+    def _compute_metric(self, gen_result: GenResult, metric: "MetricConfig") -> list[float] | None:
         """Compute a single metric for a generation task.
 
         Returns a list of scores (one per generation) which will be reduced
@@ -917,17 +953,15 @@ class MultipleChoiceTask(Task):
 
         return request_list
 
-    def _create_result(self, instances: list[Instance], filter_name: str):
+    def _create_result(self, instances: list[Instance], filter_name: str) -> MCResult:
         """Create MCResult from instances."""
-        from lm_eval.types import MCResult
-
         # Check if we need mutual information
         acc_mutual_info = "acc_mutual_info" in [
             m.name for m in self.config._metric_list
         ]
         return MCResult.from_instances(instances, acc_mutual_info=acc_mutual_info)
 
-    def _compute_metric(self, mc_result: "MCResult", metric: "MetricConfig"):
+    def _compute_metric(self, mc_result: MCResult, metric: "MetricConfig") -> float | None:
         """Compute a single metric for a multiple-choice task.
 
         MC metrics take MCResult directly and return a single score.

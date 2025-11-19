@@ -21,7 +21,6 @@ if TYPE_CHECKING:
     from lm_eval.api.instance import GenInstance, Instance, MCInstance
 
 InstanceT = TypeVar("InstanceT", bound="Instance", contravariant=True)
-ResultsSelf = TypeVar("ResultsSelf", bound="Results[Any]")
 
 
 # input formats used in tasks
@@ -82,38 +81,15 @@ class ChatTemplateProtocol(Protocol):
     ) -> ChatFormat: ...
 
 
-@runtime_checkable
-class Results(Protocol[InstanceT]):
-    """Class for storing results of a task."""
-
-    results: Any
-    target: Any
-    scores: Any
-    instances: Sequence[InstanceT]
-
-    @classmethod
-    def from_instances(
-        cls: type[ResultsSelf],
-        results: Sequence[InstanceT],
-        filter_name: str = "default",
-    ) -> ResultsSelf: ...
-
-    @abstractmethod
-    def to_metric_inputs(self) -> Any: ...
-
-    @staticmethod
-    def create(instance: Sequence[InstanceT], filter_name: str | None = None):
-        output_type = instance[0].request_type
-        match output_type:
-            case "loglikelihood":
-                return MCResult.from_instances(instance)
-            case _:
-                return GenResult.from_instances(instance, filter_name=filter_name)
-
-
 @dataclass
-class MCResult(Results):
-    """Result of a multiple-choice task. Instances are grouped by doc_id beforehand"""
+class MCResult:
+    """Result of a multiple-choice task.
+
+    Used by MultipleChoiceTask to represent log-likelihood results for a single doc.
+    Instances are grouped by doc_id before creating this result.
+
+    Metrics for MC tasks receive this object directly (not converted to dict).
+    """
 
     lls: Sequence[float]
     is_greedy: Sequence[bool]
@@ -193,9 +169,13 @@ class MCResult(Results):
 
 @dataclass
 class GenResult:
-    """Result of a generation task, grouped by doc_id.
+    """Result of a generation task for a single doc.
 
+    Used by GenerateTask to represent generated text outputs.
     Handles multiple generations per doc (e.g., temperature sampling, repeats).
+
+    Metrics for generation tasks receive kwargs from to_metric_inputs():
+    predictions (list[str]) and references (str | list[str]).
     """
 
     results: Sequence[str]  # All generated texts
@@ -220,9 +200,20 @@ class GenResult:
             instances: List of Instance objects for the same doc
             filter_name: Name of filter to use for filtered responses
 
+        Raises:
+            ValueError: If instances is empty or filter_name not found in filtered_resps
         """
         if not instances:
             raise ValueError("Cannot create GenResult from empty instances")
+
+        # Validate that the filter was actually applied
+        if filter_name and filter_name not in instances[0].filtered_resps:
+            available = list(instances[0].filtered_resps.keys())
+            raise ValueError(
+                f"Filter '{filter_name}' not found in instance.filtered_resps. "
+                f"Available filters: {available}. "
+                f"Did you forget to call task.apply_filters()?"
+            )
 
         # All instances should have the same doc and target
         doc = instances[0].doc
@@ -242,11 +233,8 @@ class GenResult:
                 else:
                     generations.append(resp)
             else:
-                # # Fallback to raw response if filter not found
-                # if isinstance(inst.resps, list):
-                #     generations.extend(inst.resps)
-                # else:
-                generations.append(inst.filtered_resps)
+                # This should not happen due to validation above
+                raise ValueError(f"Filter '{filter_name}' missing from instance")
 
         return cls(
             results=generations,

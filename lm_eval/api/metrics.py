@@ -18,6 +18,160 @@ T = TypeVar("T")
 eval_logger = logging.getLogger(__name__)
 
 
+"""
+================================================================================
+                        METRIC FUNCTION SIGNATURES
+================================================================================
+
+This library supports metrics for different task types. Each task type has its
+own metric signature pattern based on what makes sense for that type.
+
+IMPORTANT: The metric signature you use depends on the `output_type` specified
+           in @register_metric. The task type determines what your metric
+           function receives as input.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. GENERATION METRICS (output_type="generate_until")
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+For generation tasks, metrics receive keyword arguments extracted from
+GenResult.to_metric_inputs():
+  - predictions: list[str] - The generated text(s)
+  - references: str | list[str] | list[list[str]] - Gold reference(s)
+  - **options: Any additional metric-specific options
+
+Signature:
+    def my_generation_metric(
+        predictions: list[str],
+        references: list[str] | list[list[str]],
+        **options
+    ) -> float | dict[str, float]:
+        '''Compute score for generated text.'''
+        ...
+
+Example Usage:
+    @register_metric(
+        metric="exact_match",
+        higher_is_better=True,
+        output_type="generate_until",
+        aggregation="mean",
+    )
+    def exact_match_fn(**kwargs):
+        '''Check if prediction exactly matches reference.'''
+        predictions = kwargs["predictions"]
+        references = kwargs["references"]
+        # Handle single or multiple references
+        if not isinstance(references[0], list):
+            references = [[ref] for ref in references]
+        # Compute exact match
+        return sum(
+            any(pred == ref for ref in refs)
+            for pred, refs in zip(predictions, references)
+        ) / len(predictions)
+
+Why use **kwargs?
+    - Flexible: Works with different metric libraries (sacrebleu, sklearn, etc.)
+    - Compatible: External metrics expect predictions/references format
+    - Extensible: Easy to add new keyword arguments for options
+
+Common patterns:
+    - Single reference per prediction: references = ["answer1", "answer2", ...]
+    - Multiple references per prediction: references = [["ans1a", "ans1b"], ["ans2a"], ...]
+    - Metric returns single score: return 0.85
+    - Metric returns multiple scores: return {"bleu": 0.82, "bleu_1": 0.91}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2. MULTIPLE-CHOICE METRICS (output_type=["loglikelihood", "multiple_choice"])
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+For multiple-choice tasks, metrics receive the MCResult object directly.
+This object contains all information about log-likelihoods and choices.
+
+Signature:
+    def my_mc_metric(result: MCResult) -> float:
+        '''Compute score from log-likelihoods.'''
+        ...
+
+MCResult contains:
+    - lls: Sequence[float] - Log-likelihood for each choice
+    - is_greedy: Sequence[bool] - Whether each choice was greedy
+    - target: int - Index of correct choice
+    - choices: Sequence[str] - The actual choice texts
+    - char_lens: Sequence[int] - Character length of each choice
+    - byte_lens: Sequence[int] - Byte length of each choice
+    - token_lens: Sequence[int] - Token length of each choice
+    - lls_mutual_info: Sequence[float] - Mutual information scores (if enabled)
+
+Example Usage:
+    @register_metric(
+        metric="acc",
+        higher_is_better=True,
+        output_type=["loglikelihood", "multiple_choice"],
+        aggregation="mean",
+    )
+    def acc_fn(result: MCResult) -> float:
+        '''Accuracy: 1.0 if argmax(lls) == target, else 0.0.'''
+        pred_idx = max(enumerate(result.lls), key=lambda x: x[1])[0]
+        return 1.0 if pred_idx == result.target else 0.0
+
+    @register_metric(
+        metric="acc_norm",
+        higher_is_better=True,
+        output_type=["loglikelihood", "multiple_choice"],
+        aggregation="mean",
+    )
+    def acc_norm_fn(result: MCResult) -> float:
+        '''Length-normalized accuracy using character lengths.'''
+        normalized_lls = [ll / length for ll, length in zip(result.lls, result.char_lens)]
+        pred_idx = max(enumerate(normalized_lls), key=lambda x: x[1])[0]
+        return 1.0 if pred_idx == result.target else 0.0
+
+Why pass MCResult directly?
+    - Complete information: Access to lls, lengths, choices, etc.
+    - Efficient: No conversion needed
+    - Flexible: Metrics can choose which normalization to use
+    - Type-safe: MCResult has well-defined structure
+
+Common patterns:
+    - Accuracy: argmax(lls) == target
+    - Length-normalized: argmax(lls / lengths)
+    - Mutual information: argmax(lls_mutual_info)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+WHY ARE THEY DIFFERENT?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Generation and multiple-choice tasks have fundamentally different:
+  1. Data structures: Strings vs log-likelihoods
+  2. Metric ecosystems: External libraries vs internal computation
+  3. Evaluation semantics: Text matching vs probability comparison
+
+Using different signatures for each is INTENTIONAL and makes the code clearer.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+AGGREGATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After computing per-document scores, they are aggregated using the function
+specified in `aggregation` parameter:
+  - "mean": Average of all scores
+  - "median": Median of all scores
+  - "perplexity": exp(-mean(scores))
+  - Custom: Register with @register_aggregation
+
+Standard errors are computed via:
+  - Bootstrap resampling (expensive, configurable)
+  - Closed-form formulas (fast, for specific metrics like mean)
+  - "N/A" if no method available
+
+================================================================================
+"""
+
+
 # Register Aggregations First
 @register_aggregation("bypass")
 def bypass_agg(arr):
