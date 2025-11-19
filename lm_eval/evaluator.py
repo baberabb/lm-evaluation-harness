@@ -620,6 +620,7 @@ def evaluate(
         if log_samples:
             logged_samples = collect_task_logs(
                 task=task,
+                sample_scores=sample_scores,
                 limit=limit,
                 rank=RANK,
                 world_size=WORLD_SIZE,

@@ -648,15 +648,17 @@ def run_task_tests(task_list: List[str]):
 
 def collect_task_logs(
     task: Task,
+    sample_scores: dict,
     limit: Optional[int],
     rank: int,
     world_size: int,
     samples_filter: Optional[dict] = None,
 ) -> list[dict]:
-    """Collect logged samples for a task.
+    """Collect logged samples for a task using already-computed scores.
 
     Args:
         task: Task instance to collect logs from
+        sample_scores: Dict of (metric, filter) -> list of scores (from process_instances)
         limit: Maximum number of documents to process
         rank: Current process rank for multi-GPU
         world_size: Total number of processes for multi-GPU
@@ -665,7 +667,6 @@ def collect_task_logs(
     Returns:
         List of logged sample dictionaries
     """
-    import itertools
     import json
     from collections import defaultdict
 
@@ -680,14 +681,17 @@ def collect_task_logs(
         rank=rank, limit=limit, world_size=world_size, samples=indices
     )
 
-    # Group instances by doc_id
+    # Group instances by doc_id (same as process_instances does)
     instances_by_doc_id = defaultdict(list)
     for instance in task.instances:
         instances_by_doc_id[instance.doc_id].append(instance)
 
-    # Sort instances within each group
+    # Sort instances within each group (same as process_instances does)
     for instances in instances_by_doc_id.values():
         instances.sort(key=lambda x: x.idx)
+
+    # Track index into sample_scores lists per filter
+    score_indices = defaultdict(int)
 
     for doc_id, doc in doc_iterator:
         doc_id_true = indices[doc_id] if indices else doc_id
@@ -700,10 +704,15 @@ def collect_task_logs(
         for filter_key in requests[0].filtered_resps.keys():
             target = task.doc_to_target(doc)
 
-            # Compute metrics for this doc/filter combination
-            metrics = task.process_results(
-                doc, [req.filtered_resps[filter_key] for req in requests]
-            )
+            # Get metrics from already-computed sample_scores
+            # Find all metrics for this filter
+            metrics = {}
+            for (metric_name, filter_name), scores_list in sample_scores.items():
+                if filter_name == filter_key:
+                    # Get the score at the current index for this filter
+                    idx = score_indices[filter_key]
+                    if idx < len(scores_list):
+                        metrics[metric_name] = scores_list[idx]
 
             example = {
                 "doc_id": doc_id_true,
@@ -715,7 +724,7 @@ def collect_task_logs(
                     req.filtered_resps[filter_key] for req in requests
                 ],
                 "filter": filter_key,
-                "metrics": list(metrics.keys()) if metrics else [],
+                "metrics": list(metrics.keys()),
                 "doc_hash": hash_string(
                     json.dumps(
                         requests[0].doc,
@@ -729,10 +738,12 @@ def collect_task_logs(
             }
 
             # Add metric values to the example
-            if metrics:
-                example.update(metrics)
+            example.update(metrics)
 
             logged_samples.append(example)
+
+            # Increment index for this filter
+            score_indices[filter_key] += 1
 
     return logged_samples
 
