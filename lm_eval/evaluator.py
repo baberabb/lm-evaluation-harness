@@ -16,6 +16,8 @@ import lm_eval.api.task
 import lm_eval.models
 from lm_eval.caching.cache import delete_cache
 from lm_eval.evaluator_utils import (
+    build_group_hierarchy,
+    compute_group_aggregations,
     consolidate_group_results,
     consolidate_results,
     get_sample_size,
@@ -707,9 +709,20 @@ def evaluate(
 
         ### Calculate group metrics ###
         if bool(results):
-            results, versions, show_group_table, *_ = consolidate_group_results(
-                results, versions, task_dict
-            )
+            # Build Group objects from task hierarchy (simplified approach)
+            groups = build_group_hierarchy(task_dict)
+
+            # Compute aggregations using Group class (20 lines instead of 140!)
+            if groups:
+                group_results, group_versions = compute_group_aggregations(
+                    results, groups, bootstrap_iters
+                )
+                # Merge group results back into main results
+                results.update(group_results)
+                versions.update(group_versions)
+                show_group_table = True
+            else:
+                show_group_table = False
 
         results_agg, group_agg = prepare_print_tasks(task_dict, results)
         subtask_list = get_subtask_list(task_dict)
