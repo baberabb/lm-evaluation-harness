@@ -644,3 +644,156 @@ def run_task_tests(task_list: List[str]):
         raise ValueError(
             f"Not all tests for the specified tasks ({task_list}) ran successfully! Error code: {pytest_return_val}"
         )
+
+
+def collect_task_logs(
+    task: Task,
+    limit: Optional[int],
+    rank: int,
+    world_size: int,
+    samples_filter: Optional[dict] = None,
+) -> list[dict]:
+    """Collect logged samples for a task.
+
+    Args:
+        task: Task instance to collect logs from
+        limit: Maximum number of documents to process
+        rank: Current process rank for multi-GPU
+        world_size: Total number of processes for multi-GPU
+        samples_filter: Optional dict mapping task_name -> sample indices
+
+    Returns:
+        List of logged sample dictionaries
+    """
+    import itertools
+    import json
+    from collections import defaultdict
+
+    from lm_eval.utils import handle_non_serializable, hash_string
+
+    logged_samples = []
+
+    indices = (
+        samples_filter.get(task.task_name, None) if samples_filter else None
+    )
+    doc_iterator = task.doc_iterator(
+        rank=rank, limit=limit, world_size=world_size, samples=indices
+    )
+
+    # Group instances by doc_id
+    instances_by_doc_id = defaultdict(list)
+    for instance in task.instances:
+        instances_by_doc_id[instance.doc_id].append(instance)
+
+    # Sort instances within each group
+    for instances in instances_by_doc_id.values():
+        instances.sort(key=lambda x: x.idx)
+
+    for doc_id, doc in doc_iterator:
+        doc_id_true = indices[doc_id] if indices else doc_id
+        requests = instances_by_doc_id[doc_id]
+
+        if not requests:
+            continue
+
+        # Create log entry for each filter
+        for filter_key in requests[0].filtered_resps.keys():
+            target = task.doc_to_target(doc)
+
+            # Compute metrics for this doc/filter combination
+            metrics = task.process_results(
+                doc, [req.filtered_resps[filter_key] for req in requests]
+            )
+
+            example = {
+                "doc_id": doc_id_true,
+                "doc": doc,
+                "target": target,
+                "arguments": [req.args for req in requests],
+                "resps": [req.resps for req in requests],
+                "filtered_resps": [
+                    req.filtered_resps[filter_key] for req in requests
+                ],
+                "filter": filter_key,
+                "metrics": list(metrics.keys()) if metrics else [],
+                "doc_hash": hash_string(
+                    json.dumps(
+                        requests[0].doc,
+                        indent=2,
+                        default=handle_non_serializable,
+                        ensure_ascii=False,
+                    )
+                ),
+                "prompt_hash": hash_string(requests[0].arguments[0]),
+                "target_hash": hash_string(str(target)),
+            }
+
+            # Add metric values to the example
+            if metrics:
+                example.update(metrics)
+
+            logged_samples.append(example)
+
+    return logged_samples
+
+
+def gather_metrics_multigpu(
+    sample_scores: dict, rank: int, world_size: int
+) -> dict:
+    """Gather sample scores across all ranks in multi-GPU setup.
+
+    Args:
+        sample_scores: Dictionary mapping (metric, filter) -> list of values
+        rank: Current process rank
+        world_size: Total number of processes
+
+    Returns:
+        Gathered scores (only rank 0 returns full results, others return empty dict)
+    """
+    import itertools
+
+    import torch
+
+    if world_size == 1:
+        return sample_scores
+
+    gathered_scores = {}
+    for metric_key, values in sample_scores.items():
+        value_list = [None] * world_size if rank == 0 else None
+        torch.distributed.gather_object(obj=values, object_gather_list=value_list, dst=0)
+        if rank == 0:
+            gathered_scores[metric_key] = list(
+                itertools.chain.from_iterable(value_list)
+            )
+
+    return gathered_scores if rank == 0 else {}
+
+
+def gather_samples_multigpu(
+    logged_samples: list, rank: int, world_size: int
+) -> list:
+    """Gather logged samples across all ranks in multi-GPU setup.
+
+    Args:
+        logged_samples: List of logged sample dictionaries
+        rank: Current process rank
+        world_size: Total number of processes
+
+    Returns:
+        Gathered samples (only rank 0 returns full results, others return empty list)
+    """
+    import itertools
+
+    import torch
+
+    if world_size == 1:
+        return logged_samples
+
+    full_samples = [None] * world_size if rank == 0 else None
+    torch.distributed.gather_object(
+        obj=logged_samples, object_gather_list=full_samples, dst=0
+    )
+
+    return (
+        list(itertools.chain.from_iterable(full_samples)) if rank == 0 else []
+    )

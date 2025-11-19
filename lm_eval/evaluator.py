@@ -17,9 +17,12 @@ import lm_eval.models
 from lm_eval.caching.cache import delete_cache
 from lm_eval.evaluator_utils import (
     build_group_hierarchy,
+    collect_task_logs,
     compute_group_aggregations,
     consolidate_group_results,
     consolidate_results,
+    gather_metrics_multigpu,
+    gather_samples_multigpu,
     get_sample_size,
     get_subtask_list,
     get_task_list,
@@ -595,117 +598,100 @@ def evaluate(
 
     RANK = lm.rank
     WORLD_SIZE = lm.world_size
-    ### Postprocess outputs ###
+
+    ### Postprocess outputs using new Task methods ###
     # TODO: del model here, maybe (idea: allow user to specify device of e.g. reward model separately)
+
+    # Store task results for each task
+    task_results = {}
+
     for task_output, limit in zip(eval_tasks, limits):
         task = task_output.task
+        task_name = task.task_name
+
+        # Apply filters to all instances
         task.apply_filters()
 
-        ### Collect values of metrics on all datapoints ###
-        # # unpack results and sort back in order and return control to Task
-        # TODO: make it possible to use a different metric per filter
-        # Pre-process task.instances to group by doc_id
-        instances_by_doc_id = defaultdict(list)
-        for instance in task.instances:
-            instances_by_doc_id[instance.doc_id].append(instance)
-        # Sort instances within each group
-        for instances in instances_by_doc_id.values():
-            instances.sort(key=lambda x: x.idx)
-        # iterate over different filters used
-        for filter_key in task.instances[0].filtered_resps.keys():
-            indices = (
-                samples.get(task_output.task_name, None)
-                if samples is not None
-                else None
-            )
-            doc_iterator = task.doc_iterator(
-                rank=RANK,
+        # Process instances using unified Task method
+        sample_scores = task.process_instances()
+
+        # Collect logged samples if needed
+        logged_samples = []
+        if log_samples:
+            logged_samples = collect_task_logs(
+                task=task,
                 limit=limit,
+                rank=RANK,
                 world_size=WORLD_SIZE,
-                samples=indices,
+                samples_filter=samples,
             )
-            for doc_id, doc in doc_iterator:
-                if indices:
-                    doc_id_true = indices[doc_id]
-                else:
-                    doc_id_true = doc_id
-                requests = instances_by_doc_id[doc_id]
-                metrics = task.process_results(
-                    doc, [req.filtered_resps[filter_key] for req in requests]
-                )
-                if log_samples:
-                    target = task.doc_to_target(doc)
-                    example = {
-                        "doc_id": doc_id_true,
-                        "doc": doc,
-                        "target": target,
-                        "arguments": [req.args for req in requests],
-                        "resps": [req.resps for req in requests],
-                        "filtered_resps": [
-                            req.filtered_resps[filter_key] for req in requests
-                        ],
-                        "filter": filter_key,
-                        "metrics": list(metrics.keys()),
-                        "doc_hash": hash_string(
-                            json.dumps(
-                                requests[0].doc,
-                                indent=2,
-                                default=handle_non_serializable,
-                                ensure_ascii=False,
-                            )
-                        ),
-                        "prompt_hash": hash_string(requests[0].arguments[0]),
-                        "target_hash": hash_string(str(target)),
-                    }
-                    example.update(metrics)
-                    task_output.logged_samples.append(example)
-                for metric, value in metrics.items():
-                    task_output.sample_metrics[(metric, filter_key)].append(value)
 
+        # Store results for this task
+        task_results[task_name] = {
+            "task": task,
+            "sample_scores": sample_scores,
+            "logged_samples": logged_samples,
+            "limit": limit,
+        }
+
+    # Multi-GPU gathering
     if WORLD_SIZE > 1:
-        # if multigpu, then gather data across all ranks to rank 0
-        # first gather logged samples across all ranks
-        for task_output in eval_tasks:
+        lm.accelerator.wait_for_everyone()
+
+        for task_name, task_data in task_results.items():
+            # Gather sample scores
+            task_data["sample_scores"] = gather_metrics_multigpu(
+                task_data["sample_scores"], RANK, WORLD_SIZE
+            )
+
+            # Gather logged samples
             if log_samples:
-                # for task_name, task_samples in list(samples.items()):
-                full_samples = [None] * WORLD_SIZE if RANK == 0 else None
-                torch.distributed.gather_object(
-                    obj=task_output.logged_samples,
-                    object_gather_list=full_samples,
-                    dst=0,
+                task_data["logged_samples"] = gather_samples_multigpu(
+                    task_data["logged_samples"], RANK, WORLD_SIZE
                 )
 
-                if RANK == 0:
-                    task_output.logged_samples = list(
-                        itertools.chain.from_iterable(full_samples)
-                    )
-
-            # then collect metrics across all ranks
-            for metrics in task_output.sample_metrics:
-                metric_list = [None] * WORLD_SIZE if RANK == 0 else None
-                torch.distributed.gather_object(
-                    obj=task_output.sample_metrics[metrics],
-                    object_gather_list=metric_list,
-                    dst=0,
-                )
-                if RANK == 0:
-                    task_output.sample_metrics[metrics] = list(
-                        itertools.chain.from_iterable(metric_list)
-                    )
-
+    # Rank 0: Aggregate and build results
     if RANK == 0:
         ### Aggregate results over all datapoints ###
-        # aggregate results ; run bootstrap CIs
-        for task_output in eval_tasks:
-            task_output.calculate_aggregate_metric(bootstrap_iters=bootstrap_iters)
-        (
-            results,
-            samples,
-            configs,
-            versions,
-            num_fewshot,
-            higher_is_better,
-        ) = consolidate_results(eval_tasks)
+        results = {}
+        samples_dict = {}
+        configs = {}
+        versions = {}
+        num_fewshot = {}
+        higher_is_better = {}
+
+        for task_name, task_data in task_results.items():
+            task = task_data["task"]
+
+            # Compute aggregations using Task method
+            agg_metrics = task.compute_aggregations(
+                task_data["sample_scores"], bootstrap_iters=bootstrap_iters
+            )
+
+            # Build results dictionary
+            results[task_name] = {
+                **agg_metrics,
+                "alias": task.config.get("alias", task_name),
+            }
+
+            # Store logged samples
+            if log_samples:
+                samples_dict[task_name] = task_data["logged_samples"]
+
+            # Store task metadata
+            configs[task_name] = dict(task.dump_config())
+            versions[task_name] = task.VERSION
+
+            # Get num_fewshot from config
+            if (n_shot := configs[task_name].get("num_fewshot")) == 0:
+                n_shot = configs[task_name].get("metadata", {}).get("num_fewshot", 0)
+            num_fewshot[task_name] = n_shot
+
+            # Store higher_is_better
+            higher_is_better[task_name] = task.higher_is_better()
+
+        # Update samples variable for later use
+        samples = samples_dict
 
         ### Calculate group metrics ###
         if bool(results):
@@ -764,14 +750,16 @@ def evaluate(
             "n-shot": dict(sorted(num_fewshot.items())),
             "higher_is_better": dict(sorted(higher_is_better.items())),
             "n-samples": {
-                task_output.task_name: {
-                    "original": len(task_output.task.eval_docs),
+                task_name: {
+                    "original": len(task_data["task"].eval_docs),
                     "effective": min(
-                        limit if limit else len(task_output.task.eval_docs),
-                        len(task_output.task.eval_docs),
+                        task_data["limit"]
+                        if task_data["limit"]
+                        else len(task_data["task"].eval_docs),
+                        len(task_data["task"].eval_docs),
                     ),
                 }
-                for task_output, limit in zip(eval_tasks, limits)
+                for task_name, task_data in task_results.items()
             },
         }
         if log_samples:
