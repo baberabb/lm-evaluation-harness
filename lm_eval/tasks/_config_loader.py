@@ -35,14 +35,38 @@ def _make_loader(base_dir: Path, *, resolve_funcs: bool) -> type[yaml.Loader]:
     return Loader
 
 
-def _load_module_with_cache(module_path: Path) -> Any:
+def _load_module_with_cache(module_path: Path, *, force_reload: bool = False) -> Any:
     """Load a module from a file path with caching and hot-reload support.
+
+    This function implements a module cache that tracks modification times (mtime)
+    to detect when files have changed. Modules are cached in sys.modules and reused
+    if their mtime hasn't changed since the last load.
+
+    Caching Behavior:
+        - Modules are cached in sys.modules using a qualified module name
+        - Each cached module stores its mtime as __mtime__ attribute
+        - On subsequent calls, the current mtime is compared to the cached value
+        - If mtime matches and force_reload=False, the cached module is returned
+        - If mtime differs or force_reload=True, the module is reloaded
+
+    Note:
+        In rare cases, quick edits within the same filesystem timestamp resolution
+        (typically 1 second on many systems) may not trigger a reload. Use
+        force_reload=True in development scenarios where this is a concern.
+
+        In long-running processes, sys.modules may grow as modules are loaded.
+        This is standard Python behavior and typically not a concern.
 
     Args:
         module_path: Path to the Python file to load
+        force_reload: If True, bypass the cache and always reload the module.
+                      Useful during development or testing. Defaults to False.
 
     Returns:
         The loaded module
+
+    Raises:
+        ImportError: If the module cannot be loaded from the given path
     """
     # Determine module name based on location
     path_str = str(module_path)
@@ -67,7 +91,7 @@ def _load_module_with_cache(module_path: Path) -> Any:
         module_name = str(module_path.with_suffix(""))
 
     # Check if we need to reload the module
-    if module_name in sys.modules:
+    if module_name in sys.modules and not force_reload:
         existing_module = sys.modules[module_name]
         # Check if it was modified
         current_mtime = module_path.stat().st_mtime_ns

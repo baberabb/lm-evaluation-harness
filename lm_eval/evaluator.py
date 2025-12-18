@@ -13,6 +13,7 @@ import lm_eval.api.metrics
 import lm_eval.api.model
 import lm_eval.api.registry
 import lm_eval.api.task
+from lm_eval.api.constants import METRIC_BYPASS
 from lm_eval.api.group import Group
 from lm_eval.api.task import Task
 from lm_eval.caching.cache import delete_cache
@@ -364,7 +365,7 @@ def simple_evaluate(
                 f"Processing {task_name} in output-only mode. Metrics will not be calculated!"
             )
             # we have to change the class properties post-hoc. This is pretty hacky.
-            task_obj.override_metric(metric_name="bypass")
+            task_obj.override_metric(metric_name=METRIC_BYPASS)
 
         # override tasks' fewshot values to the provided num_fewshot arg value
         # except if tasks have it set to 0 manually in their configs--then we should never overwrite that
@@ -541,10 +542,12 @@ def evaluate(
     }
     eval_results_acc = cast("dict[str, ResultAcc]", cast("object", eval_results_acc))
     if not log_samples and not all(
-        "bypass" not in getattr(task_obj, "_metric_fn_list", {})
+        METRIC_BYPASS not in getattr(task_obj, "_metric_fn_list", {})
         for task_obj in eval_tasks.values()
     ):
-        raise ValueError("log_samples must be True for 'bypass' metric-only tasks")
+        raise ValueError(
+            f"log_samples must be True for '{METRIC_BYPASS}' metric-only tasks"
+        )
 
     # validation checks:
     # 1.are we running code that is marked as unsafe.

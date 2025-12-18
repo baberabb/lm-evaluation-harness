@@ -10,6 +10,7 @@ from typing import Callable, List, Optional, Sequence, TypeVar
 import numpy as np
 import sacrebleu
 
+from lm_eval.api.constants import AGGREGATION_BYPASS, METRIC_BYPASS
 from lm_eval.api.registry import register_aggregation, register_metric
 
 
@@ -19,7 +20,7 @@ eval_logger = logging.getLogger(__name__)
 
 
 # Register Aggregations First
-@register_aggregation("bypass")
+@register_aggregation(AGGREGATION_BYPASS)
 def bypass_agg(arr):
     return 999
 
@@ -320,10 +321,10 @@ def mean_stderr(arr):
 
 
 @register_metric(
-    metric="bypass",
+    metric=METRIC_BYPASS,
     higher_is_better=True,
     output_type=["loglikelihood", "multiple_choice", "generate_until"],
-    aggregation="bypass",
+    aggregation=AGGREGATION_BYPASS,
 )
 def bypass(items):
     return None

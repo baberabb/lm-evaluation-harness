@@ -15,6 +15,45 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 _IGNORE_DIRS = {"__pycache__", ".ipynb_checkpoints"}
 
+# Keys that are valid for inline task definitions
+# This is not exhaustive but covers common task config fields
+_VALID_INLINE_TASK_KEYS = frozenset({
+    # Core task fields
+    "dataset_path",
+    "dataset_name",
+    "dataset_kwargs",
+    "training_split",
+    "validation_split",
+    "test_split",
+    "fewshot_split",
+    # Document processing
+    "doc_to_text",
+    "doc_to_target",
+    "doc_to_choice",
+    "process_docs",
+    "use_prompt",
+    # Output and metrics
+    "output_type",
+    "metric_list",
+    "aggregation",
+    "higher_is_better",
+    # Generation config
+    "generation_kwargs",
+    "max_gen_toks",
+    "repeats",
+    # Fewshot config
+    "num_fewshot",
+    "fewshot_config",
+    # Filters
+    "filter_list",
+    # Metadata and overrides
+    "metadata",
+    "tag",
+    "description",
+    # Include for inheritance
+    "include",
+})
+
 
 class Kind(Enum):
     TASK = auto()  # YAML task, or task_list entry
@@ -92,6 +131,45 @@ class TaskIndex:
         index: dict[str, Entry],
         parent_path: str | None = None,
     ) -> None:
+        """Process a YAML configuration and register entries in the index.
+
+        This method parses a configuration dictionary (typically loaded from YAML)
+        and creates appropriate Entry objects based on the configuration type.
+        It handles groups, tasks, Python-defined tasks, and task lists.
+
+        Entry Types Handled:
+            - KIND.GROUP: Configs with a 'group' key. Recursively processes
+              inline children if present.
+            - Kind.TASK: Configs with a 'task' key pointing to a string name.
+            - Kind.PY_TASK: Configs with a 'class' key for Python-defined tasks.
+            - Kind.TASK_LIST: Configs with 'task_list' key containing multiple
+              task definitions that share a base configuration.
+
+        Duplicate Handling:
+            If an entry with the same name already exists in the index, a warning
+            is logged and the duplicate is skipped. This allows user-defined tasks
+            to be loaded first and take precedence, though shadowing built-in tasks
+            will generate a warning.
+
+        Args:
+            cfg: Configuration dictionary, typically loaded from YAML via load_yaml().
+            path: Path to the source YAML file (used for error messages and metadata).
+            index: The index dictionary to populate with Entry objects.
+                   Modified in place.
+            parent_path: For inline children, the parent's full path (e.g., "mmlu").
+                         Used to construct hierarchical names like "mmlu::stem".
+                         None for top-level entries.
+
+        Returns:
+            None. The index is modified in place.
+
+        Example:
+            >>> index = {}
+            >>> cfg = {"task": "hellaswag", "dataset_path": "hellaswag"}
+            >>> TaskIndex.process_cfg(cfg, Path("tasks/hellaswag.yaml"), index)
+            >>> "hellaswag" in index
+            True
+        """
         kind = TaskIndex._kind_of(cfg)
         match kind:
             case Kind.GROUP:
@@ -100,7 +178,7 @@ class TaskIndex:
                 full_path = f"{parent_path}::{grp_name}" if parent_path else grp_name
 
                 if full_path in index:
-                    log.debug(
+                    log.warning(
                         f"Duplicate group name '{full_path}' found. "
                         f"Already registered from: {index[full_path].yaml_path}. "
                         f"Skipping duplicate from: {path}"
@@ -252,7 +330,11 @@ class TaskIndex:
             child_path = f"{parent_path}::{child_name}"
 
             if child_path in index:
-                log.debug(f"Duplicate child '{child_path}' found, skipping.")
+                log.warning(
+                    f"Duplicate child '{child_path}' found. "
+                    f"Already registered from: {index[child_path].yaml_path}. "
+                    f"Skipping duplicate from: {yaml_path}"
+                )
                 continue
 
             match child_cfg:
@@ -285,7 +367,26 @@ class TaskIndex:
                         nested_cfg, yaml_path, index, parent_path=parent_path
                     )
                 case _:
-                    # Inline task definition
+                    # Inline task definition - validate before registering
+                    if not child_cfg:
+                        log.warning(
+                            f"Empty inline task config for '{child_path}' in "
+                            f"'{yaml_path}'. Skipping."
+                        )
+                        continue
+
+                    # Check if config has at least one recognized task key
+                    config_keys = set(child_cfg.keys())
+                    recognized_keys = config_keys & _VALID_INLINE_TASK_KEYS
+                    if not recognized_keys:
+                        log.warning(
+                            f"Inline task config for '{child_path}' in '{yaml_path}' "
+                            f"has no recognized task configuration keys. "
+                            f"Found keys: {sorted(config_keys)}. "
+                            f"This may indicate an invalid config structure."
+                        )
+                        # Still register it, but warn - allows for custom/unknown keys
+
                     task_cfg = {**child_cfg, "task": child_path}
                     index[child_path] = Entry(
                         name=child_path,

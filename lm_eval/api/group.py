@@ -20,6 +20,8 @@ from typing import TYPE_CHECKING, Any, cast
 
 from typing_extensions import deprecated
 
+from lm_eval.api.constants import AGGREGATION_MEAN, FILTER_NONE
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -32,14 +34,15 @@ class AggMetricConfig:
     """Configuration for how to aggregate a metric across a group's children."""
 
     metric: str
-    filter_list: list[str] = field(default_factory=lambda: ["none"])
-    aggregation: str | Callable = "mean"
+    filter_list: list[str] = field(default_factory=lambda: [FILTER_NONE])
+    aggregation: str | Callable = AGGREGATION_MEAN
     weight_by_size: bool = True
 
     def __post_init__(self):
-        if self.aggregation != "mean" and not callable(self.aggregation):
+        if self.aggregation != AGGREGATION_MEAN and not callable(self.aggregation):
             raise ValueError(
-                f"Currently, 'mean' is the only pre-defined aggregation. Got '{self.aggregation}'."
+                f"Currently, '{AGGREGATION_MEAN}' is the only pre-defined aggregation. "
+                f"Got '{self.aggregation}'."
             )
         # Normalize filter_list to always be a list
         if isinstance(self.filter_list, str):

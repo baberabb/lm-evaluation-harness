@@ -65,6 +65,42 @@ class TaskFactory:
             case _:
                 return self._build_task(entry, overrides)
 
+    # ---------------------------------------------------------------- helper methods
+
+    def _create_inline_task(
+        self, task_name: str, cfg: dict[str, Any]
+    ) -> ConfigurableTask:
+        """Create an inline ConfigurableTask from a config dict.
+
+        This helper ensures consistent task creation with proper metadata handling.
+
+        Args:
+            task_name: The namespaced task name (e.g., "group::taskname")
+            cfg: Task configuration dictionary
+
+        Returns:
+            A ConfigurableTask instance
+        """
+        task_cfg: dict[str, Any] = {**cfg, "task": task_name}
+        task_cfg["metadata"] = task_cfg.get("metadata", {}) | self._meta
+        return ConfigurableTask(config=task_cfg)
+
+    def _merge_overrides(
+        self, base: dict[str, Any] | None, additional: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Merge base overrides with additional overrides.
+
+        Args:
+            base: Base override dictionary (may be None)
+            additional: Additional overrides to merge
+
+        Returns:
+            Merged dictionary
+        """
+        if base is None:
+            return additional
+        return {**base, **additional}
+
     # ---------------------------------------------------------------- build methods
 
     def _build_task(self, entry: Entry, overrides: dict[str, Any] | None) -> Task:
@@ -139,10 +175,39 @@ class TaskFactory:
         overrides: dict[str, Any] | None,
         registry: Mapping[str, Entry],
     ) -> list[Task | Group]:
-        """Build children defined via children: dict.
+        """Build child Task/Group objects from a children configuration dict.
+
+        This method processes the 'children' field of a group configuration,
+        which uses a dictionary format where keys are child names and values
+        are their configurations.
+
+        Child Types Supported:
+            - External reference (ref:): Points to an existing entry in the registry.
+              The referenced entry is built and included as a child.
+            - Tag expansion (tag:): Expands to all tasks with the specified tag.
+              Creates multiple Task children from tagged entries.
+            - Nested group (children:): An inline subgroup with its own children.
+              Recursively processed to build nested Group structures.
+            - Inline task: Any other dict is treated as an inline task definition.
+              Built directly as a ConfigurableTask.
+
+        Override Handling:
+            - Parent overrides are passed down to all children
+            - Inline overrides from child_cfg are merged on top
+            - For refs, the namespaced name is preserved via task override
+
+        Args:
+            children_cfg: Dictionary mapping child names to their configurations.
+                          E.g., {"stem": {"ref": "mmlu_stem"}, "humanities": {...}}
+            group_name: The parent group's full name (e.g., "mmlu").
+                        Used to construct namespaced child paths like "mmlu::stem".
+            overrides: Optional dict of overrides to apply to all children.
+                       Merged with any inline overrides from child configs.
+            registry: The full task registry mapping names to Entry objects.
+                      Used to resolve refs and look up pre-registered children.
 
         Returns:
-            List of Task | Group objects
+            List of Task or Group objects ready to be added to the parent group.
         """
         children: list[Task | Group] = []
 
@@ -151,31 +216,28 @@ class TaskFactory:
 
             if child_path in registry:
                 child_entry = registry[child_path]
-                child_overrides = overrides or {}
 
-                # Merge any inline overrides from child_cfg
+                # Merge any inline overrides from child_cfg (excluding structural keys)
                 inline_overrides = {
                     k: v
                     for k, v in child_cfg.items()
                     if k not in ("ref", "tag", "children")
                 }
-                if inline_overrides:
-                    child_overrides = {**child_overrides, **inline_overrides}
+                child_overrides = self._merge_overrides(overrides, inline_overrides)
 
                 # For refs, pass the namespaced name so task is built with correct name
                 if child_entry.ref_target:
-                    child_overrides = {**child_overrides, "task": child_path}
+                    child_overrides = self._merge_overrides(
+                        child_overrides, {"task": child_path}
+                    )
 
                 child_obj = self.build(
                     child_entry, overrides=child_overrides, registry=registry
                 )
-
                 children.append(child_obj)
             else:
                 # Fallback: inline task not pre-registered
-                task_cfg: dict[str, Any] = {**child_cfg, "task": child_path}
-                task_cfg["metadata"] = task_cfg.get("metadata", {}) | self._meta
-                children.append(ConfigurableTask(config=task_cfg))
+                children.append(self._create_inline_task(child_path, child_cfg))
 
         return children
 
@@ -187,6 +249,16 @@ class TaskFactory:
         registry: dict[str, Entry],
     ) -> list[Task | Group]:
         """Build children defined via task: list (backward compatibility).
+
+        This method processes the old-style 'task' field when it contains a list
+        of task references. Each item can be a string (task name) or a dict
+        with 'task' key and optional overrides.
+
+        Args:
+            task_list: List of task references (strings or dicts with 'task' key)
+            group_name: Parent group name for namespacing
+            overrides: Optional base overrides to apply
+            registry: Task registry for lookups
 
         Returns:
             List of Task | Group objects
@@ -200,7 +272,7 @@ class TaskFactory:
                 item_overrides = overrides or {}
             elif isinstance(item, dict):
                 base_name = item["task"]
-                item_overrides = {**overrides, **item} if overrides else item
+                item_overrides = self._merge_overrides(overrides, item)
             else:
                 raise TypeError(
                     f"Unsupported sub-entry {item!r} in group '{group_name}'"
@@ -209,9 +281,7 @@ class TaskFactory:
             # Handle inline task (not in registry)
             if base_name not in registry:
                 namespaced = f"{group_name}::{base_name}"
-                task_cfg: dict[str, Any] = {**item_overrides, "task": namespaced}
-                task_cfg["metadata"] = task_cfg.get("metadata", {}) | self._meta
-                children.append(ConfigurableTask(config=task_cfg))
+                children.append(self._create_inline_task(namespaced, item_overrides))
                 continue
 
             # Build based on entry kind
@@ -228,7 +298,9 @@ class TaskFactory:
                         namespaced = f"{group_name}::{task_name}"
                         child_obj = self.build(
                             registry[task_name],
-                            overrides={"task": namespaced, **item_overrides},
+                            overrides=self._merge_overrides(
+                                item_overrides, {"task": namespaced}
+                            ),
                             registry=registry,
                         )
                         children.append(child_obj)
@@ -240,7 +312,9 @@ class TaskFactory:
                     namespaced = f"{group_name}::{base_name}"
                     child_obj = self.build(
                         child_entry,
-                        overrides={"task": namespaced, **item_overrides},
+                        overrides=self._merge_overrides(
+                            item_overrides, {"task": namespaced}
+                        ),
                         registry=registry,
                     )
                     children.append(child_obj)

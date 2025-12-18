@@ -21,6 +21,7 @@ from tqdm import tqdm
 
 from lm_eval import utils
 from lm_eval.api import samplers
+from lm_eval.api.constants import FILTER_NONE, METRIC_BYPASS
 from lm_eval.api.instance import Instance, OutputType
 from lm_eval.api.metrics import bits_per_byte, mean, weighted_perplexity
 from lm_eval.api.registry import (
@@ -116,7 +117,7 @@ class Task(abc.ABC):
 
         self._config: TaskConfig = TaskConfig({**config}) if config else TaskConfig()
 
-        self._filters = [build_filter_ensemble("none", [["take_first", None]])]
+        self._filters = [build_filter_ensemble(FILTER_NONE, [["take_first", None]])]
         self.fewshot_rnd: random.Random | None = (
             None  # purposely induce errors in case of improper usage
         )
@@ -772,7 +773,7 @@ class ConfigurableTask(Task):
                 eval_logger.debug(
                     "No custom filters defined. Using default 'take_first' filter for handling repeats."
                 )
-            self._filters = [build_filter_ensemble("none", [["take_first", None]])]
+            self._filters = [build_filter_ensemble(FILTER_NONE, [["take_first", None]])]
 
         if self.config.use_prompt is not None:
             eval_logger.info(f"loading prompt {self.config.use_prompt}")
@@ -1579,7 +1580,7 @@ class ConfigurableTask(Task):
                 gold = list(gold)
             # TODO: handle this better
             elif type(gold) is not type(result) and not (
-                "bypass" in self._metric_fn_list.keys() or isinstance(result, list)
+                METRIC_BYPASS in self._metric_fn_list.keys() or isinstance(result, list)
             ):
                 # cast gold to the same type as result
                 gold = type(result)(gold)
