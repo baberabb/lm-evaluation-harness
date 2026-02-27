@@ -8,7 +8,7 @@ build:
     python: "3.12"
   jobs:
     install:
-      - pip install -e ".[docs]"
+      - pip install "zensical>=0.0.24" "mkdocstrings-python>=2.0"
     build:
       html:
         - zensical build

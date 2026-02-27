@@ -163,13 +163,13 @@ ignore = [
 [tool.ruff.lint.extend-per-file-ignores]
  # unused-import, import-shadowed-by-loop-var, undefined-local-with-import-star, undefined-local-with-import-star-usage
 "__init__.py" = ["F401", "F402", "F403", "F405", "F822"]
-"lm_eval/api/metrics.py" = [
-    "F401", "F403"]   # unused-import
+"lm_eval/api/metrics.py" = ["F401", "F403"]   # unused-import
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
 known-first-party = ["lm_eval"]
 lines-after-imports = 2
+extra-standard-library = ["typing_extensions"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
