@@ -1,0 +1,125 @@
+site_name: LM Evaluation Harness
+site_url: https://lm-evaluation-harness.readthedocs.io/
+site_description: A framework for evaluating language models
+site_author: EleutherAI
+repo_url: https://github.com/EleutherAI/lm-evaluation-harness
+repo_name: EleutherAI/lm-evaluation-harness
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.indexes
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+    - content.code.annotate
+    - toc.follow
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          options:
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_category_heading: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            docstring_style: google
+            docstring_section_style: spacy
+            members_order: source
+            merge_init_into_class: true
+            show_if_no_docstring: true
+            signature_crossrefs: true
+            separate_signature: true
+            unwrap_annotated: true
+            show_signature_annotations: true
+            show_attribute_values: true
+          paths: [.]
+          inventories:
+            - https://docs.python.org/3/objects.inv
+            - https://typing-extensions.readthedocs.io/en/latest/objects.inv
+extra: {}
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - def_list
+  - footnotes
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - User Guide: interface.md
+    - Python API: python-api.md
+    - Configuration Files: config_files.md
+  - Guides:
+    - Model Guide: model_guide.md
+    - API Model Guide: API_guide.md
+    - New Task Guide: new_task_guide.md
+    - Task Configuration: task_guide.md
+  - Advanced:
+    - Chat Templates: chat-template-readme.md
+    - Decontamination: decontamination.md
+    - Common Pitfalls: footguns.md
+  - API Reference:
+    - api/index.md
+    - Core:
+      - lm_eval: api/lm_eval.md
+      - lm_eval.api: api/lm_eval.api.md
+    - Tasks:
+      - lm_eval.tasks: api/lm_eval.tasks.md
+      - lm_eval.config: api/lm_eval.config.md
+    - Models & Scoring:
+      - lm_eval.models: api/lm_eval.models.md
+      - lm_eval.scorers: api/lm_eval.scorers.md
+      - lm_eval.filters: api/lm_eval.filters.md
+    - Registry:
+      - lm_eval.api.registry: api/lm_eval.api.registry.md
+  - Contributing: CONTRIBUTING.md

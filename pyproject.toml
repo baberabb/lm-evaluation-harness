@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=64.0"]
+requires = ["setuptools>=82.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -97,7 +97,15 @@ tasks = [
 
 [dependency-groups]
 dev = [
+  {include-group = "dev1"},
+  {include-group = "docs"}
+]
+dev1 = [
     "lm_eval[api]", "lm_eval[dev]", "lm_eval[hf]","sentencepiece"
+]
+docs = [
+    "zensical>=0.0.24",
+    "mkdocstrings-python>=2.0",
 ]
 
 [tool.uv]
