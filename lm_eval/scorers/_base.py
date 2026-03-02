@@ -583,19 +583,21 @@ class GenScorer(Scorer):
         Returns:
             ``{metric_name: [score_per_repeat]}``.
 
-        Example::
-
+        Example:
+            ```python
             @register_scorer("code_exec")
             @dataclass
             class CodeExecScorer(GenScorer):
                 timeout: int = 10
 
                 def score(self, reference, predictions, **kwargs):
-                    return {"pass": [
-                        1.0 if run(code, self.timeout) == reference
-                        else 0.0
-                        for code in predictions
-                    ]}
+                    return {
+                        "pass": [
+                            1.0 if run(code, self.timeout) == reference else 0.0
+                            for code in predictions
+                        ]
+                    }
+            ```
         """
         return self._dispatch_metrics(
             [reference], predictions, metric_kwargs=metric_kwargs

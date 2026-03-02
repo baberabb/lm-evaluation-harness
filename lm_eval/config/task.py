@@ -72,8 +72,8 @@ class MetricConfig(TypedDict, total=False):
 class FilterStep(TypedDict, total=False):
     r"""A single filter step in a pipeline.
 
-    Example::
-
+    Example:
+        ```yaml
         - function: "regex"
           kwargs:
             regex_pattern: "#### (\\\\-?[0-9\\\\.\\\\,]+)"
@@ -81,7 +81,7 @@ class FilterStep(TypedDict, total=False):
         - function: "custom"
           kwargs:
             filter_fn: !function my_custom_filter_fn
-
+        ```
     """
 
     function: Required[str]
@@ -282,9 +282,9 @@ class TaskConfig:
 
     Example YAML::
 
-        task: arc_easy@cloze
-        dataset_path: allenai/ai2_arc
-        dataset_name: ARC-Easy
+        task: arc_easy @ cloze
+        dataset_path: allenai / ai2_arc
+        dataset_name: ARC - Easy
         test_split: test
         doc_to_text: "{{question}}"
         doc_to_target: "{{choices.label.index(answerKey)}}"

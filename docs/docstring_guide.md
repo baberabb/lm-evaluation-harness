@@ -31,7 +31,8 @@ This guide covers the two places you write documentation:
 | Link to method             | `[TaskManager.load][lm_eval.tasks.TaskManager.load]` | Same syntax                          |
 | Relative link (same class) | `[load][.load]`                                      | N/A                                  |
 | Scoped link (same module)  | `[GenScorer][GenScorer]`                             | N/A                                  |
-| Code block                 | `Example::` + indented block                         | Fenced ` ``` ` block                 |
+| Code block (script)        | `Example:` + fenced ` ``` ` block                    | Fenced ` ``` ` block                 |
+| Code block (REPL)          | `Examples:` + `>>>` lines (note plural)              | Fenced ` ``` ` block                 |
 | Bullet list                | `* item` or `- item`                                 | `- item`                             |
 | Numbered list              | `1. item`                                            | `1. item`                            |
 | Heading                    | N/A (use sections like `Args:`)                      | `# H1` / `## H2` / `### H3`          |
@@ -82,7 +83,8 @@ Google-style sections recognized by mkdocstrings:
 | `Raises:`      | Exceptions the function may raise            |
 | `Yields:`      | For generator functions                      |
 | `Attributes:`  | Class or dataclass attributes                |
-| `Example::`    | Code example block (note the double colon)   |
+| `Example:`     | Code example (admonition — use fenced block) |
+| `Examples:`    | REPL examples (auto-parses `>>>` lines)      |
 | `Note:`        | Important notes                              |
 | `Warning:`     | Warnings                                     |
 | `Todo:`        | Future work                                  |
@@ -230,38 +232,71 @@ appears somewhere in your built docs (i.e., it's pulled in by a `:::`
 directive in some `.md` page).  If the target isn't documented, the
 reference renders as plain text instead of a link.
 
-### Code Blocks in Docstrings — `Example::`
+### Code Blocks in Docstrings
 
-Use `Example::` (with double colon) followed by an indented block:
+There are two approaches depending on whether you want to show a **script** or
+**interactive REPL output**.
+
+#### Script examples — `Example:` + fenced block
+
+Use `Example:` (singular, one colon) with a fenced Markdown code block.
+This gives you explicit language control and proper syntax highlighting:
 
 ```python
 class TaskManager:
     """Central entry point for discovering and loading evaluation tasks.
 
-    Example::
-
+    Example:
+        ```python
         tm = TaskManager(include_path="my_tasks/")
         result = tm.load(["mmlu", "hellaswag"])
         result["tasks"]   # {name: Task, ...}
         result["groups"]  # {name: Group, ...}
+        ```
     """
 ```
 
-The double colon `::` introduces a literal block.
-Everything indented after a blank line is rendered as a code block.
-
-For YAML examples:
+For non-Python examples, change the language tag:
 
 ```python
 class ScorerConfig:
     """Configuration for a registered scorer.
 
-    Example YAML::
-
+    Example:
+        ```yaml
         # String shorthand
         scorer: first_token
+        ```
     """
 ```
+
+#### REPL examples — `Examples:` + `>>>` lines
+
+Use `Examples:` (plural) for interactive console style. mkdocstrings
+auto-parses `>>>` lines into code blocks and separates prose:
+
+```python
+def normalize_metric_cfg(cfg: dict) -> dict:
+    """Normalize a metric config dict.
+
+    Examples:
+        Basic usage:
+
+        >>> normalize_metric_cfg({"metric": "exact_match", "ignore_case": True})
+        {"metric": "exact_match", "kwargs": {"ignore_case": True}}
+
+        Already normalized input is returned as-is:
+
+        >>> normalize_metric_cfg({"metric": "acc", "kwargs": {}})
+        {"metric": "acc", "kwargs": {}}
+    """
+```
+
+!!! warning "`Example::` (double colon) does not work"
+    The `Example::` syntax is from reStructuredText/Sphinx. mkdocstrings
+    does not understand `::` literal blocks — the content will render as
+    collapsed inline text without line breaks. Use one of the two approaches
+    above instead.
 
 ### Bulleted / Numbered Lists in Docstrings
 

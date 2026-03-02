@@ -4,10 +4,13 @@ A Group is a container for Tasks and/or sub-Groups that can compute
 aggregated metrics across its members.
 
 Example:
-    >>> group = Group("mmlu")
-    >>> group.add(mmlu_anatomy_task)
-    >>> group.add(mmlu_biology_task)
-    >>> all_tasks = group.get_all_tasks()  # [Task, Task]
+    ```python
+    group = Group("mmlu")
+    group.add(mmlu_anatomy_task)
+    group.add(mmlu_biology_task)
+    all_tasks = group.get_all_tasks()  # [Task, Task]
+    ```
+
 """
 
 from __future__ import annotations
@@ -45,12 +48,13 @@ class Group:
         aggregate_metric_list: Optional list of metrics to aggregate across children
         metadata: Optional dict for user-defined metadata
 
-    Example::
-
+    Example:
+        ```python
         group = Group("mmlu")
         group.add(anatomy_task)
         group.add(biology_task)
         group.get_all_tasks()  # [anatomy_task, biology_task]
+        ```
 
     """
 
@@ -153,7 +157,7 @@ class Group:
     ) -> list[str]:
         """Discover all filter names used with a specific metric in child tasks.
 
-        Scans all leaf task metrics for keys matching "{metric},{filter}" pattern
+        Scans all leaf task metrics for keys matching the `` {metric},{filter} `` pattern
         and returns unique filter names.
 
         Args:
