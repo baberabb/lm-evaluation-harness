@@ -15,7 +15,6 @@ from __future__ import annotations
 import logging
 from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any, cast
-
 from typing_extensions import deprecated
 
 from lm_eval.config.group import GroupConfig
@@ -46,11 +45,13 @@ class Group:
         aggregate_metric_list: Optional list of metrics to aggregate across children
         metadata: Optional dict for user-defined metadata
 
-    Example:
-        >>> group = Group("mmlu")
-        >>> group.add(anatomy_task)
-        >>> group.add(biology_task)
-        >>> group.get_all_tasks()  # [anatomy_task, biology_task]
+    Example::
+
+        group = Group("mmlu")
+        group.add(anatomy_task)
+        group.add(biology_task)
+        group.get_all_tasks()  # [anatomy_task, biology_task]
+
     """
 
     name: str
@@ -249,18 +250,29 @@ class Group:
                     else:
                         tasks_without_metric.append(task_name)
 
-                # Log warning if metric is missing in some tasks
+                # Log warning if a metric is missing in some tasks
                 if values and tasks_without_metric:
+                    missing_names = ", ".join(tasks_without_metric[:5])
+                    overflow = (
+                        f" and {len(tasks_without_metric) - 5} more"
+                        if len(tasks_without_metric) > 5
+                        else ""
+                    )
                     eval_logger.warning(
-                        f"Group '{self.name}': metric '{metric_key}' is missing in "
-                        f"{len(tasks_without_metric)}/{len(leaf_tasks)} tasks. "
-                        f"Missing in: {', '.join(tasks_without_metric[:5])}"
-                        f"{f' and {len(tasks_without_metric) - 5} more' if len(tasks_without_metric) > 5 else ''}"
+                        "Group '%s': metric '%s' is missing in %d/%d tasks. Missing in: %s%s",
+                        self.name,
+                        metric_key,
+                        len(tasks_without_metric),
+                        len(leaf_tasks),
+                        missing_names,
+                        overflow,
                     )
 
                 if not values:
                     eval_logger.warning(
-                        f"Group '{self.name}': no values found for metric '{metric_key}' across any tasks."
+                        "Group '%s': no values found for metric '%s' across any tasks.",
+                        self.name,
+                        metric_key,
                     )
 
                 if values:
