@@ -500,10 +500,31 @@ This uses bootstrap resampling[^1] for standard error estimation.
    If cross-refs don't resolve, try `rm -rf .cache site` first.
 2. **Cross-references only resolve** if the target object is documented
    (included via a `:::` directive somewhere)
-3. **Indentation matters** for `Example::` blocks — use 4 spaces
-4. The `signature_crossrefs = true` setting in `zensical.toml` means type
+3. **Indentation matters** for fenced code blocks inside docstrings — use 4 spaces
+4. **Newlines in `Returns:`/`Args:` start new entries** — mkdocstrings treats
+   each non-indented line under a section as a separate item. Keep descriptions
+   as one continuous paragraph, or indent continuation lines:
+
+   ```python
+   # BAD — the dict line becomes a second return entry
+"""
+   Returns:
+       Aggregated metrics dict for this group:
+       {"alias": str, "acc,none": float, ...}
+   """
+
+# GOOD — one paragraph with inline code
+   """
+   Returns:
+       Aggregated metrics dict for this group, e.g.
+           ``{"alias": str, "acc,none": float, ...}``
+   """
+
+   ```
+
+5. The `signature_crossrefs = true` setting in `zensical.toml` means type
    annotations in signatures automatically become links where possible
-5. **Don't duplicate types** — if the function signature has type hints,
+6. **Don't duplicate types** — if the function signature has type hints,
    mkdocstrings renders them automatically; no need to repeat in `Args:`
-6. The `relative_crossrefs` and `scoped_crossrefs` options in `zensical.toml`
-   enable the shorter `[.sibling]` and `[SameName]` reference forms
+7. The `relative_crossrefs` and `scoped_crossrefs` options in `zensical.toml`
+enable the shorter `[.sibling]` and `[SameName]` reference forms

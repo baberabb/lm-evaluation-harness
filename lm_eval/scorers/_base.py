@@ -107,8 +107,9 @@ class Scorer:
         """Build a Scorer from a normalised pipeline config.
 
         *cfg* is a [_ScorerCfg][_ScorerCfg] produced by
-        ``TaskConfig._normalize_scoring_config()``::
+        ``TaskConfig._normalize_scoring_config()``:
 
+            ```python
             {
                 "name": "strict-match",
                 "filter": [
@@ -119,6 +120,7 @@ class Scorer:
                     {"metric": "exact_match", "aggregation": "mean", ...},
                 ],
             }
+            ```
 
         *output_type* is used as a last-resort fallback when neither the
         config nor the class provides metrics (see
@@ -526,12 +528,11 @@ class GenScorer(Scorer):
     [_extract_inputs][._extract_inputs] to pull ``(reference, predictions, metric_kwargs)``
     from each document's instances.
 
-    The default call chain is::
+    The default call chain is:
+    ``score_instances()`` → ``score_doc()`` → ``score()``
 
-        score_instances()  →  score_doc()  →  score()
-
-    Example batch scorer overriding ``score_instances``::
-
+    Example:
+        ```python
         @register_scorer("ai_judge")
         @dataclass
         class AIJudgeScorer(GenScorer):
@@ -549,6 +550,7 @@ class GenScorer(Scorer):
                         scores={"judge": [ratings[did]]})
                     for did, (ref, preds, _) in inputs.items()
                 }
+        ```
     """
 
     # ------------------------------------------------------------------

@@ -192,8 +192,8 @@ class Group:
                 entries for its own leaf tasks (via ``get_all_tasks()``).
 
         Returns:
-            Aggregated metrics dict for this group:
-            {"alias": str, "acc,none": float, "acc_stderr,none": float, "sample_len": int, ...}
+            Aggregated metrics dict for this group, e.g.
+                ``{"alias": str, "acc,none": float, "acc_stderr,none": float, "sample_len": int, ...}``
         """
         from lm_eval.api.metrics import aggregate_subtask_metrics, pooled_sample_stderr
 
