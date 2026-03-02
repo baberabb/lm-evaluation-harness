@@ -75,9 +75,7 @@ default_handler = "python"
 
 [project.plugins.mkdocstrings.handlers.python]
 paths = ["."]
-inventories = [
-  "https://typing-extensions.readthedocs.io/en/latest/objects.inv",
-]
+inventories = []
 
 [project.plugins.mkdocstrings.handlers.python.options]
 show_source = true
