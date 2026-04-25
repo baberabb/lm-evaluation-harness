@@ -1,0 +1,203 @@
+complete,family,model_path,large,params,type,languages
+,Qwen3.5,Qwen/Qwen3.5-4B,,4B,instruct,all
+,Qwen3.5,Qwen/Qwen3.5-9B,,9B,instruct,all
+,Qwen3.5,Qwen/Qwen3.5-27B,,27B,instruct,all
+,Qwen3.5,Qwen/Qwen3.5-2B,,2B,instruct,all
+,Qwen3.5,Qwen/Qwen3.5-0.8B,,800M,instruct,all
+,Qwen3.5,Qwen/Qwen3.5-0.8B-Base,,800M,base,all
+,Qwen3.5,Qwen/Qwen3.5-2B-Base,,2B,base,all
+,Qwen3.5,Qwen/Qwen3.5-4B-Base,,4B,base,all
+,Qwen3.5,Qwen/Qwen3.5-9B-Base,,9B,base,all
+,Tiny Aya,CohereLabs/tiny-aya-global,,3B,instruct,"eng, nld, fra, ita, por, ron, spa, ces, pol, ukr, rus, ell, deu, dan, swe, nor, cat, glg, cym, gle, eus, hrv, lav, lit, slk, slv, est, fin, hun, srp, bul, ara, fas, urd, tur, mlt, heb, hin, mar, ben, guj, pan, tam, tel, nep, tgl, msa, ind, vie, jav, khm, tha, lao, zho, mya, jpn, kor, amh, hau, ibo, mlg, sna, swa, wol, xho, yor, zul"
+,Tiny Aya,CohereLabs/tiny-aya-base,,3B,base,"eng, nld, fra, ita, por, ron, spa, ces, pol, ukr, rus, ell, deu, dan, swe, nor, cat, glg, cym, gle, eus, hrv, lav, lit, slk, slv, est, fin, hun, srp, bul, ara, fas, urd, tur, mlt, heb, hin, mar, ben, guj, pan, tam, tel, nep, tgl, msa, ind, vie, jav, khm, tha, lao, zho, mya, jpn, kor, amh, hau, ibo, mlg, sna, swa, wol, xho, yor, zul"
+,Gemma4,google/gemma-4-31B-it,,31B,instruct,all
+,Gemma4,google/gemma-4-E2B,,5B,base,all
+,Gemma4,google/gemma-4-E2B-it,,5B,instruct,all
+,Gemma4,google/gemma-4-E4B,,8B,base,all
+,Gemma4,google/gemma-4-E4B-it,,8B,instruct,all
+,SEA LION,aisingapore/Gemma-SEA-LION-v3-9B,,9B,base,"mya, zho, eng, fil, ind, jav, khm, lao, msa, sun, tam, tha, vie"
+,SEA LION,aisingapore/Gemma-SEA-LION-v3-9B-IT,,9B,instruct,"mya, zho, eng, fil, ind, jav, khm, lao, msa, sun, tam, tha, vie"
+,SEA LION,aisingapore/Llama-SEA-LION-v3-70B,1,70B,base,"mya, zho, eng, fil, ind, jav, khm, lao, msa, sun, tam, tha, vie"
+,SEA LION,aisingapore/Llama-SEA-LION-v3-70B-IT,1,70B,instruct,"mya, zho, eng, fil, ind, jav, khm, lao, msa, sun, tam, tha, vie"
+,SEA LION,aisingapore/Llama-SEA-LION-v3-8B,,8B,base,"mya, zho, eng, fil, ind, jav, khm, lao, msa, sun, tam, tha, vie"
+,SEA LION,aisingapore/Llama-SEA-LION-v3-8B-IT,,8B,instruct,"mya, zho, eng, fil, ind, jav, khm, lao, msa, sun, tam, tha, vie"
+,APT,Azurro/APT3-1B-Base,,1B,base,pol
+,APT,Azurro/APT3-1B-Instruct-v1,,1B,instruct,pol
+,Gromenauer,bertin-project/Gromenauer-7B,,7B,base,spa
+,BLOOM,bigscience/bloom-1b1,,1.1B,base,"aka, ara, asm, bam, ben, cat, eng, spa, eus, fon, fra, guj, hin, ind, ibo, kik, kan, lug, lin, mal, mar, nep, nso, nya, ori, pan, por, run, kin, sna, sot, swa, tam, tel, tsn, tso, tum, twi, urd, vie, wol, xho, yor, zho, zho, zho, zul"
+,BLOOM,bigscience/bloom-1b7,,1.7B,base,"aka, ara, asm, bam, ben, cat, eng, spa, eus, fon, fra, guj, hin, ind, ibo, kik, kan, lug, lin, mal, mar, nep, nso, nya, ori, pan, por, run, kin, sna, sot, swa, tam, tel, tsn, tso, tum, twi, urd, vie, wol, xho, yor, zho, zho, zho, zul"
+,BLOOM,bigscience/bloom-3b,,3B,base,"aka, ara, asm, bam, ben, cat, eng, spa, eus, fon, fra, guj, hin, ind, ibo, kik, kan, lug, lin, mal, mar, nep, nso, nya, ori, pan, por, run, kin, sna, sot, swa, tam, tel, tsn, tso, tum, twi, urd, vie, wol, xho, yor, zho, zho, zho, zul"
+,BLOOM,bigscience/bloom-560m,,560M,base,"aka, ara, asm, bam, ben, cat, eng, spa, eus, fon, fra, guj, hin, ind, ibo, kik, kan, lug, lin, mal, mar, nep, nso, nya, ori, pan, por, run, kin, sna, sot, swa, tam, tel, tsn, tso, tum, twi, urd, vie, wol, xho, yor, zho, zho, zho, zul"
+,BLOOM,bigscience/bloom-7b1,,7.1B,base,"aka, ara, asm, bam, ben, cat, eng, spa, eus, fon, fra, guj, hin, ind, ibo, kik, kan, lug, lin, mal, mar, nep, nso, nya, ori, pan, por, run, kin, sna, sot, swa, tam, tel, tsn, tso, tum, twi, urd, vie, wol, xho, yor, zho, zho, zho, zul"
+,Salamandra,BSC-LT/salamandra-2b,,2B,base,"eng, spa, fra, rus, deu, hun, por, ita, cat, nld, pol, ukr, ell, ces, ron, slk, bul, swe, nor, dan, fin, slv, glg, srp, hun, eus, est, lit, lav, mlt, cym, gle, hbs, oci, nno"
+,Salamandra,BSC-LT/salamandra-2b-instruct,,2B,instruct,"eng, spa, fra, rus, deu, hun, por, ita, cat, nld, pol, ukr, ell, ces, ron, slk, bul, swe, nor, dan, fin, slv, glg, srp, hun, eus, est, lit, lav, mlt, cym, gle, hbs, oci, nno"
+,Salamandra,BSC-LT/salamandra-7b,,7B,base,"eng, spa, fra, rus, deu, hun, por, ita, cat, nld, pol, ukr, ell, ces, ron, slk, bul, swe, nor, dan, fin, slv, glg, srp, hun, eus, est, lit, lav, mlt, cym, gle, hbs, oci, nno"
+,Salamandra,BSC-LT/salamandra-7b-instruct,,7B,instruct,"eng, spa, fra, rus, deu, hun, por, ita, cat, nld, pol, ukr, ell, ces, ron, slk, bul, swe, nor, dan, fin, slv, glg, srp, hun, eus, est, lit, lav, mlt, cym, gle, hbs, oci, nno"
+,Aya,CohereLabs/aya-expanse-32b,,32B,instruct,"eng, fra, deu, spa, ita, por, jpn, kor, zho, ara, ell, fas, pol, ind, ces, heb, hin, nld, ron, rus, tur, ukr, vie"
+,Aya,CohereLabs/aya-expanse-8b,,8B,instruct,"eng, fra, deu, spa, ita, por, jpn, kor, zho, ara, ell, fas, pol, ind, ces, heb, hin, nld, ron, rus, tur, ukr, vie"
+,Command A,CohereLabs/c4ai-command-a-03-2025,1,111B,instruct,"eng, fra, deu, spa, ita, por, jpn, kor, zho, ara, ell, fas, pol, ind, ces, heb, hin, nld, ron, rus, tur, ukr, vie"
+,Command R,CohereLabs/c4ai-command-r-08-2024,,32B,instruct,"eng, fra, deu, spa, ita, por, jpn, kor, zho, ara"
+,Command R,CohereLabs/c4ai-command-r-plus-08-2024,1,104B,instruct,"eng, fra, deu, spa, ita, por, jpn, kor, zho, ara"
+,Command R,CohereLabs/c4ai-command-r7b-12-2024,,7B,instruct,"eng, fra, spa, ita, deu, por, jpn, kor, ara, zho, rus, pol, tur, vie, nld, ces, ind, ukr, ron, ell, hin, heb, fas"
+,Crane Gemma,CraneAILabs/ganda-gemma-1b,,1B,base,lug
+,Crane Gemma,CraneAILabs/swahili-gemma-1b,,1B,base,swa
+,CroissantLLM,croissantllm/CroissantLLMBase,,1.3B,base,"eng, fra"
+,CroissantLLM,croissantllm/CroissantLLMChat-v0.1,,1.3B,instruct,"eng, fra"
+,Deepseek,deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B,,1.5B,instruct,all
+,Deepseek,deepseek-ai/DeepSeek-R1-Distill-Qwen-14B,,14B,instruct,all
+,Deepseek,deepseek-ai/DeepSeek-R1-Distill-Qwen-32B,,32B,instruct,all
+,Deepseek,deepseek-ai/DeepSeek-R1-Distill-Qwen-7B,,7B,instruct,all
+,XGLM,facebook/xglm-1.7B,,1.7B,base,"eng, rus, zho, deu, spa, fra, jpn, ita, por, ell, kor, fin, ind, tur, ara, vie, tha, bul, cat, hin, est, ben, tam, urd, swa, tel, eus, mya, hat, que"
+,XGLM,facebook/xglm-2.9B,,2.9B,base,"eng, rus, zho, deu, spa, fra, jpn, ita, por, ell, kor, fin, ind, tur, ara, vie, tha, bul, cat, hin, est, ben, tam, urd, swa, tel, eus, mya, hat, que"
+,XGLM,facebook/xglm-4.5B,,4.5B,base,"eng, rus, zho, deu, spa, fra, jpn, ita, por, ell, ron, ukr, hun, kor, pol, nor, nld, fin, dan, ind, hrv, tur, ara, vie, tha, bul, fas, swe, msa, heb, ces, slk, cat, lit, slv, hin, est, lav, tgl, sqi, srp, aze, ben, tam, urd, kaz, hye, kat, isl, bel, bos, mal, mkd, swa, afr, tel, mon, lat, nep, sin, mar, kan, som, cym, jav, pus, uzb, guj, khm, amh, pan, glg, hau, mlg, san, eus, mya, sun, ori, hat, lao, kir, bre, gle, yor, epo, zul, tir, kur, orm, xho, gla, ibo, asm, lug, wol, fry, tsn, ful, grn, snd, lin, bam, iku, kon, que, ssw"
+,XGLM,facebook/xglm-564M,,564M,base,"eng, rus, zho, deu, spa, fra, jpn, ita, por, ell, kor, fin, ind, tur, ara, vie, tha, bul, cat, hin, est, ben, tam, urd, swa, tel, eus, mya, hat, que"
+,XGLM,facebook/xglm-7.5B,,7.5B,base,"eng, rus, zho, deu, spa, fra, jpn, ita, por, ell, kor, fin, ind, tur, ara, vie, tha, bul, cat, hin, est, ben, tam, urd, swa, tel, eus, mya, hat, que"
+,HyGPT,Gen2B/HyGPT-10b,,10B,base,hye
+,Gemma2,google/gemma-2-27b,,27B,base,all
+,Gemma2,google/gemma-2-27b-it,,27B,instruct,all
+,Gemma2,google/gemma-2-2b,,2B,base,all
+,Gemma2,google/gemma-2-2b-it,,2B,instruct,all
+,Gemma2,google/gemma-2-9b,,9B,base,all
+,Gemma2,google/gemma-2-9b-it,,9B,instruct,all
+,Gemma3,google/gemma-3-12b-it,,12B,instruct,all
+,Gemma3,google/gemma-3-12b-pt,,12B,base,all
+,Gemma3,google/gemma-3-1b-it,,1B,instruct,all
+,Gemma3,google/gemma-3-1b-pt,,1B,base,all
+,Gemma3,google/gemma-3-270m,,270M,base,all
+,Gemma3,google/gemma-3-270m-it,,270M,instruct,all
+,Gemma3,google/gemma-3-27b-it,,27B,instruct,all
+,Gemma3,google/gemma-3-27b-pt,,27B,base,all
+,Gemma3,google/gemma-3-4b-it,,4B,instruct,all
+,Gemma3,google/gemma-3-4b-pt,,4B,base,all
+,Krikri,ilsp/Llama-Krikri-8B-Base,,8B,base,ell
+,Krikri,ilsp/Llama-Krikri-8B-Instruct,,8B,instruct,ell
+,Meltemi,ilsp/Meltemi-7B-Instruct-v1.5,,7B,instruct,ell
+,Meltemi,ilsp/Meltemi-7B-v1.5,,7B,base,ell
+,JAIS,inceptionai/jais-family-13b,,13B,base,"apc, arz, ary, arb, apc, ajp, afb, ayn, ajp, aeb, arq"
+,JAIS,inceptionai/jais-family-13b-chat,,13B,instruct,"apc, arz, ary, arb, apc, ajp, afb, ayn, ajp, aeb, arq"
+,JAIS,inceptionai/jais-family-1p3b,,1.3B,base,"apc, arz, ary, arb, apc, ajp, afb, ayn, ajp, aeb, arq"
+,JAIS,inceptionai/jais-family-1p3b-chat,,1.3B,instruct,"apc, arz, ary, arb, apc, ajp, afb, ayn, ajp, aeb, arq"
+,JAIS,inceptionai/jais-family-2p7b,,2.7B,base,"apc, arz, ary, arb, apc, ajp, afb, ayn, ajp, aeb, arq"
+,JAIS,inceptionai/jais-family-2p7b-chat,,2.7B,instruct,"apc, arz, ary, arb, apc, ajp, afb, ayn, ajp, aeb, arq"
+,JAIS,inceptionai/jais-family-30b-8k,,30B,base,"apc, arz, ary, arb, apc, ajp, afb, ayn, ajp, aeb, arq"
+,JAIS,inceptionai/jais-family-30b-8k-chat,,30B,instruct,"apc, arz, ary, arb, apc, ajp, afb, ayn, ajp, aeb, arq"
+,JAIS,inceptionai/jais-family-6p7b,,6.7B,base,"apc, arz, ary, arb, apc, ajp, afb, ayn, ajp, aeb, arq"
+,JAIS,inceptionai/jais-family-6p7b-chat,,6.7B,instruct,"apc, arz, ary, arb, apc, ajp, afb, ayn, ajp, aeb, arq"
+,IndoGPT,indobenchmark/indogpt,,100M,base,ind
+,Kanana,kakaocorp/kanana-1.5-2.1b-base,,1.2B,base,kor
+,Kanana,kakaocorp/kanana-1.5-2.1b-instruct-2505,,1.2B,instruct,kor
+,Kanana,kakaocorp/kanana-1.5-8b-base,,8B,base,kor
+,Kanana,kakaocorp/kanana-1.5-8b-instruct-2505,,8B,instruct,kor
+,Inkuba,lelapa/InkubaLM-0.4B,,400M,base,"zul, yor, swa, xho, hau, eng, fra"
+,EXAONE,LGAI-EXAONE/EXAONE-3.5-32B-Instruct,,32B,instruct,kor
+,EXAONE,LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct,,7.8B,instruct,kor
+,EXAONE,LGAI-EXAONE/EXAONE-4.0-1.2B,,1.2B,instruct,kor
+,EXAONE,LGAI-EXAONE/EXAONE-4.0-32B,,32B,instruct,kor
+,Poro,LumiOpen/Llama-Poro-2-70B-base,,70B,base,fin
+,Poro,LumiOpen/Llama-Poro-2-70B-Instruct,,70B,instruct,fin
+,Poro,LumiOpen/Llama-Poro-2-8B-base,,8B,base,fin
+,Poro,LumiOpen/Llama-Poro-2-8B-Instruct,,8B,instruct,fin
+,Viking,LumiOpen/Viking-13B,,13B,base,"fin, eng, swe, dan, nor, isl"
+,Viking,LumiOpen/Viking-33B,,33B,base,"fin, eng, swe, dan, nor, isl"
+,Viking,LumiOpen/Viking-7B,,7B,base,"fin, eng, swe, dan, nor, isl"
+,MaLA-500,MaLA-LM/mala-500-10b-v2,,7B,base,all
+,Llama,meta-llama/Llama-3.1-70B,,70B,base,all
+,Llama,meta-llama/Llama-3.1-70B-Instruct,,70B,instruct,all
+,Llama,meta-llama/Llama-3.1-8B,,8B,base,all
+,Llama,meta-llama/Llama-3.1-8B-Instruct,,8B,instruct,all
+,Llama,meta-llama/Llama-3.2-1B,,1B,base,all
+,Llama,meta-llama/Llama-3.2-1B-Instruct,,1B,instruct,all
+,Llama,meta-llama/Llama-3.2-3B,,3B,base,all
+,Llama,meta-llama/Llama-3.2-3B-Instruct,,3B,instruct,all
+,Phi3,microsoft/Phi-3-medium-4k-instruct,,14B,instruct,all
+,Phi3,microsoft/Phi-3-mini-4k-instruct,,3.8B,instruct,all
+,Phi3,microsoft/Phi-3-small-8k-instruct,,7.4B,instruct,all
+,Phi3,microsoft/Phi-3.5-mini-instruct,,3.8B,instruct,all
+,Phi4,microsoft/phi-4,,15B,instruct,all
+,Phi4,microsoft/Phi-4-mini-instruct,,3.8B,instruct,all
+,Mistral,mistralai/Mistral-7B-Instruct-v0.1,,7B,instruct,all
+,Mistral,mistralai/Mistral-7B-Instruct-v0.3,,7B,instruct,all
+,Mistral,mistralai/Mistral-7B-v0.1,,7B,base,all
+,Mistral,mistralai/Mistral-Small-Instruct-2409,,22B,instruct,all
+,Mistral,mistralai/Mixtral-8x7B-Instruct-v0.1,,7B,instruct,all
+,Mistral,mistralai/Mixtral-8x7B-v0.1,,7B,base,all
+,Kimi K2,moonshotai/Kimi-K2-Base,,32B,base,all
+,Kimi K3,moonshotai/Kimi-K2-Instruct,,32B,instruct,all
+,HyperClovaX,naver-hyperclovax/HyperCLOVAX-SEED-Text-Instruct-0.5B,,500M,instruct,kor
+,HyperClovaX,naver-hyperclovax/HyperCLOVAX-SEED-Text-Instruct-1.5B,,1.5B,instruct,kor
+,Nemotron,nvidia/nemotron-3-8b-base-4k,,8B,base,"eng, ara, aze, bul, ben, cat, ces, dan, deu, ell, spa, est, fas, fin, fra, glg, heb, hin, hrv, hun, hye, ind, isl, ita, kat, kaz, kan, kor, lit, lav, mkd, mal, mar, nep, nld, nor, pol, por, ron, rus, slk, slv, sqi, srp, swe, tam, tel, tur, ukr, urd, vie, jpn, zhoRetry"
+,GPT-oss,openai/gpt-oss-120b,1,120B,instruct,all
+,GPT-oss,openai/gpt-oss-20b,,20B,instruct,all
+,SinLlama,polyglots/SinLlama_v01,,8B,base,sin
+,Qwen,Qwen/Qwen2.5-0.5B,,500M,base,all
+,Qwen,Qwen/Qwen2.5-0.5B-Instruct,,500M,instruct,all
+,Qwen,Qwen/Qwen2.5-1.5B,,1.5B,base,all
+,Qwen,Qwen/Qwen2.5-1.5B-Instruct,,1.5B,instruct,all
+,Qwen,Qwen/Qwen2.5-14B,,14B,base,all
+,Qwen,Qwen/Qwen2.5-14B-Instruct,,14B,instruct,all
+,Qwen,Qwen/Qwen2.5-32B,,32B,base,all
+,Qwen,Qwen/Qwen2.5-32B-Instruct,,32B,instruct,all
+,Qwen,Qwen/Qwen2.5-3B,,3B,base,all
+,Qwen,Qwen/Qwen2.5-3B-Instruct,,3B,instruct,all
+,Qwen,Qwen/Qwen2.5-72B,,72B,base,all
+,Qwen,Qwen/Qwen2.5-72B-Instruct,,72B,instruct,all
+,Qwen,Qwen/Qwen2.5-7B,,7B,base,all
+,Qwen,Qwen/Qwen2.5-7B-Instruct,,7B,instruct,all
+,Qwen3,Qwen/Qwen3-0.6B,,600M,instruct,all
+,Qwen3,Qwen/Qwen3-1.7B,,1.7B,instruct,all
+,Qwen3,Qwen/Qwen3-14B,,14B,instruct,all
+,Qwen3,Qwen/Qwen3-32B,,32B,instruct,all
+,Qwen3,Qwen/Qwen3-4B,,4B,instruct,all
+,Qwen3,Qwen/Qwen3-8B,,8B,instruct,all
+,Sahabat,Sahabat-AI/Llama-Sahabat-AI-v2-70B-IT,,70B,instruct,"eng, ind, jav, sun, bbc, ban"
+,Sailor,sail/Sailor2-1B,,1B,base,"eng, zho, ind, tha, vie, msa, lao, mya, jav, khm, sun, tgl"
+,Sailor,sail/Sailor2-1B-Chat,,1B,instruct,"eng, zho, ind, tha, vie, msa, lao, mya, jav, khm, sun, tgl"
+,Sailor,sail/Sailor2-20B,,20B,base,"eng, zho, ind, tha, vie, msa, lao, mya, jav, khm, sun, tgl"
+,Sailor,sail/Sailor2-20B-Chat,,20B,instruct,"eng, zho, ind, tha, vie, msa, lao, mya, jav, khm, sun, tgl"
+,Sailor,sail/Sailor2-8B,,8B,base,"eng, zho, ind, tha, vie, msa, lao, mya, jav, khm, sun, tgl"
+,Sailor,sail/Sailor2-8B-Chat,,8B,instruct,"eng, zho, ind, tha, vie, msa, lao, mya, jav, khm, sun, tgl"
+,Minerva,sapienzanlp/Minerva-1B-base-v1.0,,1B,base,ita
+,Minerva,sapienzanlp/Minerva-3B-base-v1.0,,3B,base,ita
+,Minerva,sapienzanlp/Minerva-7B-base-v1.0,,7B,base,ita
+,Minerva,sapienzanlp/Minerva-7B-instruct-v1.0,,7B,instruct,ita
+,Sarvam,sarvamai/sarvam-m,,24B,instruct,"eng, ben, hin, kan, guj, mar, mal, ori, pan, tam, tel"
+,SeaLLM,SeaLLMs/SeaLLMs-v3-1.5B,,1.5B,base,"eng, zho, ind, vie, tha, tgl, msa, mya, khm, lao, tam, jav"
+,SeaLLM,SeaLLMs/SeaLLMs-v3-1.5B-Chat,,1.5B,instruct,"eng, zho, ind, vie, tha, tgl, msa, mya, khm, lao, tam, jav"
+,SeaLLM,SeaLLMs/SeaLLMs-v3-7B,,7B,base,"eng, zho, ind, vie, tha, tgl, msa, mya, khm, lao, tam, jav"
+,SeaLLM,SeaLLMs/SeaLLMs-v3-7B-Chat,,7B,instruct,"eng, zho, ind, vie, tha, tgl, msa, mya, khm, lao, tam, jav"
+,Bielik,speakleash/Bielik-1.5B-v3,,1.5B,base,pol
+,Bielik,speakleash/Bielik-1.5B-v3.0-Instruct,,1.5B,instruct,pol
+,Bielik,speakleash/Bielik-4.5B-v3,,4.5B,base,pol
+,Bielik,speakleash/Bielik-4.5B-v3.0-Instruct,,4.5B,instruct,pol
+,Apertus,swiss-ai/Apertus-70B-2509,,70B,base,all
+,Apertus,swiss-ai/Apertus-70B-Instruct-2509,,70B,instruct,all
+,Apertus,swiss-ai/Apertus-8B-2509,,8B,base,all
+,Apertus,swiss-ai/Apertus-8B-Instruct-2509,,8B,instruct,all
+,Falcon,tiiuae/falcon-40b,,40B,base,"eng, deu, spa, fra, ita, por, pol, nld, ron, ces, swe"
+,Falcon,tiiuae/falcon-40b-instruct,,40B,instruct,"eng, deu, spa, fra, ita, por, pol, nld, ron, ces, swe"
+,Falcon,tiiuae/falcon-7b,,7B,base,"eng, deu, spa, fra, ita, por, pol, nld, ron, ces, swe"
+,Falcon,tiiuae/falcon-7b-instruct,,7B,instruct,"eng, deu, spa, fra, ita, por, pol, nld, ron, ces, swe"
+,Babel,Tower-Babel/Babel-83B,1,83B,base,"eng, zho, hin, spa, fra, arb, ben, rus, por, ind, urd, deu, jpn, swa, tam, tur, kor, vie, jav, ita, hau, tha, fas, tgl, mya"
+,Babel,Tower-Babel/Babel-83B-Chat,1,83B,instruct,"eng, zho, hin, spa, fra, arb, ben, rus, por, ind, urd, deu, jpn, swa, tam, tur, kor, vie, jav, ita, hau, tha, fas, tgl, mya"
+,Babel,Tower-Babel/Babel-9B,,9B,base,"eng, zho, hin, spa, fra, arb, ben, rus, por, ind, urd, deu, jpn, swa, tam, tur, kor, vie, jav, ita, hau, tha, fas, tgl, mya"
+,Babel,Tower-Babel/Babel-9B-Chat,,9B,instruct,"eng, zho, hin, spa, fra, arb, ben, rus, por, ind, urd, deu, jpn, swa, tam, tur, kor, vie, jav, ita, hau, tha, fas, tgl, mya"
+,Tucano,TucanoBR/Tucano-1b1,,1.1B,base,por
+,Tucano,TucanoBR/Tucano-1b1-Instruct,,1.1B,instruct,por
+,Tucano,TucanoBR/Tucano-2b4,,2.4B,base,por
+,Tucano,TucanoBR/Tucano-2b4-Instruct,,2.4B,instruct,por
+,Cheetah,UBC-NLP/cheetah-1.2B,,1.2B,base,"apc, arz, amh, ary, arb, apc, ajp, afb, afb, apc, ayn, ajp, aeb, bam, hau, kin, lug, lin, luo, pcm, yor, zul, acm, arq"
+,Cheetah,UBC-NLP/cheetah-base,,3.7B,base,"apc, arz, amh, ary, arb, apc, ajp, afb, afb, apc, ayn, ajp, aeb, bam, hau, kin, lug, lin, luo, pcm, yor, zul, acm, arq"
+,Tower,Unbabel/TowerBase-13B-v0.1,,13B,base,"eng, por, spa, fra, deu, nld, ita, kor, zho, rus"
+,Tower,Unbabel/TowerBase-7B-v0.1,,7B,base,"eng, por, spa, fra, deu, nld, ita, kor, zho, rus"
+,Tower,Unbabel/TowerInstruct-13B-v0.1,,13B,instruct,"eng, por, spa, fra, deu, nld, ita, kor, zho, rus"
+,Tower,Unbabel/TowerInstruct-7B-v0.1,,7B,instruct,"eng, por, spa, fra, deu, nld, ita, kor, zho, rus"
+,PersianMind,universitytehran/PersianMind-v1.0,,6.8B,base,fas
+,EuroLLM,utter-project/EuroLLM-9B,,9B,base,"bul, hrv, ces, dan, nld, eng, est, fin, fra, deu, ell, hun, gle, ita, lav, lit, mlt, pol, por, ron, slk, slv, spa, swe, ara, cat, zho, glg, hin, jpn, kor, nor, rus, tur, ukr"
+,EuroLLM,utter-project/EuroLLM-9B-Instruct,,9B,instruct,"bul, hrv, ces, dan, nld, eng, est, fin, fra, deu, ell, hun, gle, ita, lav, lit, mlt, pol, por, ron, slk, slv, spa, swe, ara, cat, zho, glg, hin, jpn, kor, nor, rus, tur, ukr"
+,VinaLLaMA,vilm/vinallama-2.7b,,2.7B,base,vie
+,VinaLLaMA,vilm/vinallama-2.7b-chat,,2.7B,instruct,vie
+,VinaLLaMA,vilm/vinallama-7b,,7B,base,vie
+,VinaLLaMA,vilm/vinallama-7b-chat,,7B,instruct,vie
+,PhoGPT,vinai/PhoGPT-7B5,,7.5B,base,vie
+,PhoGPT,vinai/PhoGPT-7B5-Instruct,,7.5B,instruct,vie
+,Komodo,Yellow-AI-NLP/komodo-7b-base,,7B,base,"eng, ind, ace, ban, bjn, bug, mad, min, jav, nij, sun, bbc, ljp"

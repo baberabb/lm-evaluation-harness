@@ -16,6 +16,12 @@ filter_list:
         regex_pattern: '[Tt]he (?:[Bb]est [Aa]nswer|[Ff]inal [Aa]nswer|[Aa]nswer)[^A-B]*([A-B])|[Aa]nswer\s*:[^A-B]*([A-B])|\\boxed\{([A-B])\}'
         group_select: -1
       - function: take_first
+  - name: flexible-extract
+    filter:
+      - function: "regex"
+        regex_pattern: '[Tt]he (?:[Bb]est [Aa]nswer|[Ff]inal [Aa]nswer|[Aa]nswer)[^A-B]*([A-B])|[Aa]nswer\s*:[^A-B]*([A-B])|\\boxed\{([A-B])\}|\b([A-B])\b'
+        group_select: -1
+      - function: take_first
 metric_list:
   - metric: exact_match
     aggregation: mean
