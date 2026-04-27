@@ -1,0 +1,11 @@
+family,model_path,large,params,type,languages,params_b
+GPT-oss,openai/gpt-oss-120b,1.0,120B,instruct,all,120.0
+Command A,CohereLabs/c4ai-command-a-03-2025,1.0,111B,instruct,"eng, fra, deu, spa, ita, por, jpn, kor, zho, ara, ell, fas, pol, ind, ces, heb, hin, nld, ron, rus, tur, ukr, vie",111.0
+Command R,CohereLabs/c4ai-command-r-plus-08-2024,1.0,104B,instruct,"eng, fra, deu, spa, ita, por, jpn, kor, zho, ara",104.0
+Babel,Tower-Babel/Babel-83B-Chat,1.0,83B,instruct,"eng, zho, hin, spa, fra, arb, ben, rus, por, ind, urd, deu, jpn, swa, tam, tur, kor, vie, jav, ita, hau, tha, fas, tgl, mya",83.0
+Qwen,Qwen/Qwen2.5-72B-Instruct,,72B,instruct,all,72.0
+SEA LION,aisingapore/Llama-SEA-LION-v3-70B-IT,1.0,70B,instruct,"mya, zho, eng, fil, ind, jav, khm, lao, msa, sun, tam, tha, vie",70.0
+Poro,LumiOpen/Llama-Poro-2-70B-Instruct,,70B,instruct,fin,70.0
+Llama,meta-llama/Llama-3.1-70B-Instruct,,70B,instruct,all,70.0
+Sahabat,Sahabat-AI/Llama-Sahabat-AI-v2-70B-IT,,70B,instruct,"eng, ind, jav, sun, bbc, ban",70.0
+Apertus,swiss-ai/Apertus-70B-Instruct-2509,,70B,instruct,all,70.0
